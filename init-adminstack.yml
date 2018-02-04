@@ -1,0 +1,39 @@
+---
+#Configure the base packages, mount the EFS and determine if jenkins installation already exists on EFS or not
+#IMPORTANT: We want a primary / failover configuration where if a host fails, a new one in it's place will pick up the installation in the EFS and pick up from there. To make this work, we need to manually install Jenkins so we have control over where the files are stored
+#All of these tasks will be run locally
+- hosts: adminstack
+  vars:
+    region: ap-southeast-2
+  tasks:
+  - name: "Install unzip"
+    apt:
+      name: unzip
+      state: present
+  - name: "Install rsync"
+    apt:
+      name: rsync
+      state: present
+  - name: "Install curl"
+    apt:
+      name: curl
+      state: present
+  - name: "Install Open JDK 1.8"
+    apt:
+      name: openjdk-8-jdk
+      state: present
+  - name: "Install Tomcat"
+    apt:
+      name: tomcat8
+      state: present
+  - name: "Install nfs-common"
+    apt:
+      name: nfs-common
+      state: present
+  - name: "Jenkins Config - Create Directory"
+    file:
+      path: /opt/jenkins
+      state: directory
+      mode: 0755
+  - name: "Wordpress Config - Mount EFS" #NOTE: NEED TO LOOK AT REPLACEING WITH ANSIBLE MOUNT MODULE
+    command: "mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 {{ efsfqdn }}.efs.{{ region }}.amazonaws.com:/ /opt/jenkins"

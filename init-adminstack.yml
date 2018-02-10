@@ -1,6 +1,6 @@
 ---
 #Configure the base packages, mount the EFS and determine if jenkins installation already exists on EFS or not
-#IMPORTANT: We want a primary / failover configuration where if a host fails, a new one in it's place will pick up the installation in the EFS and pick up from there. To make this work, we need to manually install Jenkins so we have control over where the files are stored
+#IMPORTANT: We want a primary / failover configuration where if a host fails, a new one in it's place will pick up the installation in the EFS and pick up from there. To make this work, all wuser data will be stored in /opt/jenkins_data on EFS mount
 #All of these tasks will be run locally
 - hosts: adminstack
   vars:
@@ -22,18 +22,67 @@
     apt:
       name: openjdk-8-jdk
       state: present
-  - name: "Install Tomcat"
-    apt:
-      name: tomcat8
-      state: present
   - name: "Install nfs-common"
     apt:
       name: nfs-common
       state: present
+  - name: "Get Jenkins IO Key"
+    get_url:
+      url: "https://pkg.jenkins.io/debian/jenkins.io.key"
+      dest: "{{ playbook_dir }}/jenkins.io.key"
+  - name: "Add Jenkins IO Key"
+    apt_key:
+      file: "{{ playbook_dir }}/jenkins.io.key"
+      state: present
+  - name: "Add Jenkins Repository"
+    apt_repository:
+      repo: "deb http://pkg.jenkins.io/debian-stable binary/"
+      filename: "jenkins.list"
+      state: present
+  - name: "Install Jenkins"
+    apt:
+      name: jenkins
+      update_cache: yes
+      state: present
+  - name: "Stop Jenkins"
+    service:
+      name: jenkins
+      state: stopped
   - name: "Jenkins Config - Create Directory"
     file:
-      path: /opt/jenkins
+      path: /opt/jenkins_data
       state: directory
       mode: 0755
-  - name: "Wordpress Config - Mount EFS" #NOTE: NEED TO LOOK AT REPLACEING WITH ANSIBLE MOUNT MODULE
-    command: "mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 {{ efsfqdn }}.efs.{{ region }}.amazonaws.com:/ /opt/jenkins"
+      owner: jenkins
+      group: jenkins
+  - name: "Jenkins Config - Mount EFS" #NOTE: NEED TO LOOK AT REPLACEING WITH ANSIBLE MOUNT MODULE
+    command: "mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 {{ efsfqdn }}.efs.{{ region }}.amazonaws.com:/ /opt/jenkins_data"
+  - name: "Jenkins Config - Alter Permission Upload"
+    file:
+      path: /opt/jenkins_data
+      state: directory
+      owner: jenkins
+      group: jenkins
+      mode: 0755
+  - name: "Jenkins Config - Change Home Directory"
+    lineinfile:
+      line: "JENKINS_HOME=/opt/jenkins_data"
+      regexp: "^JENKINS_HOME="
+      dest: "/etc/default/jenkins"
+      state: present
+  - name: "Jenkins Config - Check if Installation Already Exists"
+    find:
+      path: "/opt/jenkins_data"
+    register: jenkins_data
+  - name: "Jenkins Config - Install Exists - Start Jenkins Service"
+    service:
+      name: jenkins
+      state: started
+    when: jenkins_data.files|length > 0
+  - name: "Jenkins Config - Install Exists - Quit Playbook"
+    fail: #This isn't really ideal but can't get end_play to work. Where not really failing, we just don't need to continue as we have everything we need in the EFS and as this is an existing install, we don't want to re-setup anything in AWS
+      msg: "Existing install. Halting remaining scripts and utiilizing existing configuration. NOTE: We haven't actually failed, but can't get the end_play capability to work"
+    when: jenkins_data.files|length > 0
+- include: cont-adminstack.yml #Call on additional script to do some pre-configuration
+    
+#ansible-playbook -i inventory/adminstack init-adminstack.yml --extra-vars "efsfqdn=fs-937385aa elbdns=hacms-alb-adminstack-125613288.ap-southeast-2.elb.amazonaws.com" -vvvv

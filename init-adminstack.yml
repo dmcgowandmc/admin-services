@@ -79,10 +79,22 @@
       name: jenkins
       state: started
     when: jenkins_data.files|length > 0
-  - name: "Jenkins Config - Install Exists - Quit Playbook"
-    fail: #This isn't really ideal but can't get end_play to work. Where not really failing, we just don't need to continue as we have everything we need in the EFS and as this is an existing install, we don't want to re-setup anything in AWS
-      msg: "Existing install. Halting remaining scripts and utiilizing existing configuration. NOTE: We haven't actually failed, but can't get the end_play capability to work"
-    when: jenkins_data.files|length > 0
-- include: cont-adminstack.yml #Call on additional script to do some pre-configuration
-    
-#ansible-playbook -i inventory/adminstack init-adminstack.yml --extra-vars "efsfqdn=fs-937385aa elbdns=hacms-alb-adminstack-125613288.ap-southeast-2.elb.amazonaws.com" -vvvv
+  - name: "Jenkins Config - Install Exists - Terminate. Not further action required"
+    fail:
+      msg: "Existing Install. Stopping. Note we haven't actually failed but other attempts to stop the scripts don't seem to work. So don't freak out about this message"
+  - name: "Jenkins Config - No Install - Start Jenkins Service with Setup Wizard"
+    service:
+      name: jenkins
+      state: started
+  - pause:
+      seconds: 20
+  - name: "Jenkins Config - No Install - Setup Default Configuration"
+    jenkinscfg.py:
+      username: "{{ username }}"
+      password: "{{ password }}"
+      email: "{{ email }}"
+    when: jenkins_data.files|length == 0
+- include: init-aws.yml #This script will complete the setup of AWS components we could complete in the init cloud formation template
+
+
+#ansible-playbook -i inventory/adminstack init-adminstack.yml --extra-vars "efsfqdn=<efs> username=<username> password=<password> email=<email> stackname=<stackname>" -vvvv

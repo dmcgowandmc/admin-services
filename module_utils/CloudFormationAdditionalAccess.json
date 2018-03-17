@@ -1,0 +1,17 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "CloudFormationAdditionalAccess",
+            "Effect": "Allow",
+            "Action": [
+                "cloudformation:*",
+                "iam:PassRole",
+                "iam:ListInstanceProfiles"
+            ],
+            "Resource": [
+                "*"
+            ]
+        }
+    ]
+}

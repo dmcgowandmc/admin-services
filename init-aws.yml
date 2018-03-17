@@ -1,0 +1,16 @@
+#This script will init the aws components we couldn't setup using cloud formation templates. It will then apply an updated cloud formation tempalte utilizating these components and other stack components we could use before. Once completed it will clean up anything
+#temporary we created and re-init jenkins
+#All of tese tasks will be run locally
+- hosts: adminstack
+  vars:
+    region: ap-southeast-2
+  tasks:
+  - name: "Create Policy CloudFormationAdditionalAccess" #Policy Creation not supported on this version of ansible. Using aws cli to create policy. And have to use ignore errors flag to so not to trip up if already exists
+    command: aws iam create-policy --policy-name CloudFormationAdditionalAccess --policy-document file://module_utils/CloudFormationAdditionalAccess.json
+    ignore_errors: true
+  - name: "Create Policy CloudWatchUpload"
+    command: aws iam create-policy --policy-name CloudWatchUpload --policy-document file://module_utils/CloudWatchUpload.json
+    ignore_errors: true
+  - name: "Create {{ stackname }}-admin-ec2 role"
+    command: "aws iam create-role --role-name {{ stackname }} --assume-role-policy-document file://module_utils/ec2role.json"
+    ignore_errors: true

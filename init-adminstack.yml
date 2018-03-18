@@ -82,19 +82,20 @@
   - name: "Jenkins Config - Install Exists - Terminate. Not further action required"
     fail:
       msg: "Existing Install. Stopping. Note we haven't actually failed but other attempts to stop the scripts don't seem to work. So don't freak out about this message"
+    when: jenkins_data.files|length > 0
   - name: "Jenkins Config - No Install - Start Jenkins Service with Setup Wizard"
     service:
       name: jenkins
       state: started
-  - pause:
+  - name: "Jenkins Config - No Install - Pause to allow startup to initilize all files"
+    pause:
       seconds: 20
   - name: "Jenkins Config - No Install - Setup Default Configuration"
     jenkinscfg.py:
       username: "{{ username }}"
       password: "{{ password }}"
       email: "{{ email }}"
-    when: jenkins_data.files|length == 0
-- include: init-aws.yml #This script will complete the setup of AWS components we could complete in the init cloud formation template
+- include: init-aws.yml #This script will complete the setup of AWS components we couldn't complete in the init cloud formation template
 
 
 #ansible-playbook -i inventory/adminstack init-adminstack.yml --extra-vars "efsfqdn=<efs> username=<username> password=<password> email=<email> stackname=<stackname>" -vvvv

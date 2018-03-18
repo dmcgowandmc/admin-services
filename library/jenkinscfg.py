@@ -70,12 +70,12 @@ def run_module():
         message=''
     )
 
-    # Once paramters are validated successfully, they are applied to the module object
+    # Once parameters are validated successfully, they are applied to the module object
     module = AnsibleModule(
         argument_spec=module_args,
     )
 
-    #Begining Code Here
+    #Beginning Code Here
     password = getPassword()
 
     if password == "nopw":
@@ -86,7 +86,7 @@ def run_module():
         crumb = getCrumb(username,password)
         #crumb = getCrumb(module.params['username'],module.params['password'])
         pluginStatus = defaultPluginInstall(username, password, crumb)
-        time.sleep(180) #Since checking current status of installed plugins, setting a time limit of 5 minutes to complete. Ideally it should do checks every few seconds to confirm modules have been installed
+        time.sleep(180) #Since checking current status of installed plugins is a pain, setting a time limit of 5 minutes to complete. Ideally it should do checks every few seconds to confirm modules have been installed
         createUserStatus = createRequiredUsers(username, password, crumb, module.params['username'], module.params['password'], module.params['email'])
 
         result['changed']=True
@@ -99,29 +99,30 @@ def run_module():
 
 #Get the initial password. If we fail to get the password, this generally means Jenkins is already setup and using proper credentials in a defined user
 def getPassword():
-        try:
-                with open("/opt/jenkins_data/secrets/initialAdminPassword") as pwfile:
-                        return pwfile.readline().strip()
-        except:
-                return "nopw"
+    try:
+        with open("/opt/jenkins_data/secrets/initialAdminPassword") as pwfile:
+            return pwfile.readline().strip()
+    except:
+        return "nopw"
 
 
 #Begin the Login Process. From here we get our crumb
 #WARNING : If initial password is incorrect, this will crap out with a generic json error. This is because the failure page is regular html instead of json
 def getCrumb(username, password):
-        url = "http://127.0.0.1:8080/crumbIssuer/api/json"
-        headers = {
-                "Content-Type": "application/json",
-                "Authorization": "Basic " + base64.b64encode(username + ":" + password)
-        }
+    url = "http://127.0.0.1:8080/crumbIssuer/api/json"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": "Basic " + base64.b64encode(username + ":" + password)
+    }
 
-        response = requests.get(url, headers=headers)
+    response = requests.get(url, headers=headers)
 
 
-        for key, value in json.loads(response.text).iteritems():
-                if key == "crumb":
-                        crumb = value
-        return crumb
+    for key, value in json.loads(response.text).iteritems():
+        if key == "crumb":
+            crumb = value
+
+    return crumb
 
 #Trigger the installation of recommended plugins.
 def defaultPluginInstall(username, password, crumb):

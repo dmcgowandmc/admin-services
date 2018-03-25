@@ -17,9 +17,21 @@
                         "Description": "For advanced users only. Please leave as is unless you know what you are doing",
                         "Default": "ami-0c34246f"
                 },
-                "Role": {
+                "AdminEC2Role": {
                         "Type": "String",
-                        "Description": "You need to create a temporary admin role. This will role will be removed upon completion of the application configuration with something more secure. See README.md for more information"
+                        "Description": "Admin Role. To be assigned to Admin ASG Only"
+                },
+                "UtilitiesEC2Role": {
+                        "Type": "String",
+                        "Description": "Utilities Role. To be assigned to all other hosts. Sufficient access to write to specific parts of S3 and read from the rest. No Cloud Formation Creation abilities"
+                },
+                "AdminEC2RolePrincipal": {
+                        "Type": "String",
+                        "Description": "The Principal (so we can apply to S3 bucket policy)"
+                },
+                "UtilitiesEC2RolePrincipal": {
+                        "Type": "String",
+                        "Description": "The Principal (so we can apply to S3 bucket policy)"
                 },
                 "IntKeyPair": {
                         "Type": "AWS::EC2::KeyPair::KeyName",
@@ -94,7 +106,7 @@
                                         }
                                 }]
                         }
-        },
+                        },
                 "VPCSubnetAZ2AdminPublic": {
                         "Type": "AWS::EC2::Subnet",
                         "Properties": {
@@ -115,7 +127,7 @@
                                         }
                                 }]
                         }
-        },
+                },
                 "VPCSubnetAZ3AdminPublic": {
                         "Type": "AWS::EC2::Subnet",
                         "Properties": {
@@ -136,7 +148,7 @@
                                         }
                                 }]
                         }
-        },
+                },
                 "VPCIGWPublic": {
                         "Type" : "AWS::EC2::InternetGateway",
                         "Properties" : {
@@ -272,7 +284,7 @@
                                         }
                                 }]
                         }
-        },
+                },
                 "VPCSubnetAZ2AdminPrivate": {
                         "Type": "AWS::EC2::Subnet",
                         "Properties": {
@@ -292,7 +304,7 @@
                                         }
                                 }]
                         }
-        },
+                },
                 "VPCSubnetAZ3AdminPrivate": {
                         "Type": "AWS::EC2::Subnet",
                         "Properties": {
@@ -312,7 +324,7 @@
                                         }
                                 }]
                         }
-        },
+                },
                 "VPCNATAZ1PrivateEIP": {
                         "Type" : "AWS::EC2::EIP",
                         "Properties" : {}
@@ -501,9 +513,6 @@
                         "Type" : "AWS::EC2::Instance",
                         "Properties" : {
                                 "AvailabilityZone" : {
-                                        "Ref" : "AWS::Region"
-                                },
-                                "AvailabilityZone" : {
                                         "Fn::Join": ["", [
                                                         {"Ref" : "AWS::Region"},
                                                         "a"
@@ -522,7 +531,7 @@
                                 },
                                 "InstanceType" : "t2.micro",
                                 "IamInstanceProfile": {
-                                        "Ref": "Role"
+                                        "Ref": "UtilitiesEC2Role"
                                 },
                                 "KeyName" : {
                                         "Ref": "ExtKeyPair"
@@ -818,7 +827,7 @@
                                         }
                                 }],
                                 "IamInstanceProfile" : {
-                                        "Ref": "Role"
+                                        "Ref": "AdminEC2Role"
                                 },
                                 "ImageId" : {
                                         "Ref": "BaseAMI"
@@ -1016,8 +1025,133 @@
                                 "ASGAdminStack",
                                 "SNSTopicInfraAlert"
                         ]
+                },
+                "S3Utilities": {
+                        "Type" : "AWS::S3::Bucket",
+                        "Properties" : {
+                                "BucketName" : {
+                                        "Fn::Join": ["-", [
+                                                        {"Ref": "AWS::StackName"},
+                                                        "s3-utilities"
+                                                ]
+                                        ]
+                                },
+                                "Tags" : [{
+                                        "Key": "Name",
+                                        "Value": {
+                                                "Fn::Join": ["-", [
+                                                                {"Ref": "AWS::StackName"},
+                                                                "s3-utilities"
+                                                        ]
+                                                ]
+                                        }
+                                },
+                                {
+                                        "Key": "Description",
+                                        "Value": "Contains code and artifacts to be used by various resources. Typically code is unencrypted and artifacts are encrypted due to potential sensitive information"
+                                }]
+                        }
+                },
+                "S3UtilitiesPolicy": {
+                        "Type" : "AWS::S3::BucketPolicy",
+                        "Properties" : {
+                                "Bucket": {
+                                        "Fn::Join": ["-", [
+                                                        {"Ref": "AWS::StackName"},
+                                                        "s3-utilities"
+                                                ]
+                                        ]
+                                },
+                                "PolicyDocument": {
+                                        "Id": "S3UtilitiesPolicy",
+                                        "Version": "2012-10-17",
+                                        "Statement": [
+                                                {
+                                                        "Sid": "UtilityReadAccess",
+                                                        "Action": [
+                                                                "s3:ListBucket",
+                                                                "s3:GetObject",
+                                                                "s3:GetObjectTagging",
+                                                                "s3:GetObjectVersion"
+                                                        ],
+                                                        "Effect": "Allow",
+                                                        "Resource": [
+                                                                {
+                                                                        "Fn::Join": ["", [
+                                                                                "arn:aws:s3:::",{
+                                                                                        "Fn::Join": ["-", [
+                                                                                                        {"Ref": "AWS::StackName"},
+                                                                                                        "s3-utilities"
+                                                                                                ]
+                                                                                        ]
+                                                                                }]
+                                                                        ]
+                                                                },
+                                                                {
+                                                                        "Fn::Join": ["", [
+                                                                                "arn:aws:s3:::",{
+                                                                                        "Fn::Join": ["-", [
+                                                                                                        {"Ref": "AWS::StackName"},
+                                                                                                        "s3-utilities"
+                                                                                                ]
+                                                                                        ]
+                                                                                },
+                                                                                "/bootstrap/*"]
+                                                                        ]
+                                                                },
+                                                                {
+                                                                        "Fn::Join": ["", [
+                                                                                "arn:aws:s3:::",{
+                                                                                        "Fn::Join": ["-", [
+                                                                                                        {"Ref": "AWS::StackName"},
+                                                                                                        "s3-utilities"
+                                                                                                ]
+                                                                                        ]
+                                                                                },
+                                                                                "/resources/*"]
+                                                                        ]
+                                                                }
+                                                        ],
+                                                        "Principal": {
+                                                                "AWS": [
+                                                                        "arn:aws:iam::601374407704:role/hacms-iam-role-utilities-ec2"
+                                                                ]
+                                                        }
+                                                },
+                                                {
+                                                        "Sid": "UtilityWriteAccess",
+                                                        "Action": [
+                                                                "s3:PutObject"
+                                                        ],
+                                                        "Effect": "Allow",
+                                                        "Resource": [
+                                                                {
+                                                                        "Fn::Join": ["", [
+                                                                                "arn:aws:s3:::",{
+                                                                                        "Fn::Join": ["-", [
+                                                                                                        {"Ref": "AWS::StackName"},
+                                                                                                        "s3-utilities"
+                                                                                                ]
+                                                                                        ]
+                                                                                },
+                                                                                "/resources/*"]
+                                                                        ]
+                                                                }
+                                                        ],
+                                                        "Principal": {
+                                                                "AWS": [
+                                                                        "arn:aws:iam::601374407704:role/hacms-iam-role-utilities-ec2"
+                                                                ]
+                                                        }
+                                                }
+                                        ]
+                                }
+                        },
+                        "DependsOn": [
+                                "S3Utilities"
+                        ]
                 }
-    },
+        },
 
         "Outputs": {
                 "VPC": {

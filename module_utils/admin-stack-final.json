@@ -1,1263 +1,1287 @@
 {
-        "AWSTemplateFormatVersion": "2010-09-09",
+	"AWSTemplateFormatVersion": "2010-09-09",
 
-        "Parameters": {
-                "BaseUtilityIP": {
-                        "Type": "String",
-                        "Default": "0.0.0.0/0",
-                        "Description": "Please provide the range of external IP addresses permitted to the utility box via ssh. Default is 0.0.0.0/0 but strongly recommended this be changed"
-                },
-                "BaseAdminExtIP": {
-                        "Type": "String",
-                        "Default": "0.0.0.0/0",
-                        "Description": "Please provide the range of external IP addresses permitted to the admin server. Default is 0.0.0.0/0 but strongly recommended this be changed"
-                },
-                "BaseAMI": {
-                        "Type": "AWS::EC2::Image::Id",
-                        "Description": "For advanced users only. Please leave as is unless you know what you are doing",
-                        "Default": "ami-0c34246f"
-                },
-                "AdminEC2Role": {
-                        "Type": "String",
-                        "Description": "Admin Role. To be assigned to Admin ASG Only"
-                },
-                "UtilitiesEC2Role": {
-                        "Type": "String",
-                        "Description": "Utilities Role. To be assigned to all other hosts. Sufficient access to write to specific parts of S3 and read from the rest. No Cloud Formation Creation abilities"
-                },
-                "AdminEC2RolePrincipal": {
-                        "Type": "String",
-                        "Description": "The Principal (so we can apply to S3 bucket policy)"
-                },
-                "UtilitiesEC2RolePrincipal": {
-                        "Type": "String",
-                        "Description": "The Principal (so we can apply to S3 bucket policy)"
-                },
-                "IntKeyPair": {
-                        "Type": "AWS::EC2::KeyPair::KeyName",
-                        "Description": "Internal Keypair to be used for all internal systems"
-                },
-                "ExtKeyPair": {
-                        "Type": "AWS::EC2::KeyPair::KeyName",
-                        "Description": "You need to create a keypair for external access to the utility box. See README.md for more information"
-                },
-                "InfraAlertEmail": {
-                        "Type": "String",
-                        "Description": "Please provide an valid email address for infrastructure alerts. This will be used for all monitoring alerts"
-                },
-                "AdminUsername": {
-                        "Type": "String",
-                        "Description": "Please provide an administrator username for the admin server / aws console"
-                },
-                "AdminPassword": {
-                        "Type": "String",
-                        "Description": "Please provide an administrator password for the admin server / aws console",
-                        "MinLength": "8",
-                        "NoEcho": "true"
-                },
-                "StandardUsername": {
-                        "Type": "String",
-                        "Description": "Please provide an standard username for the admin server / aws console"
-                },
-                "StandardPassword": {
-                        "Type": "String",
-                        "Description": "Please provide an standard password for the admin server / aws console",
-                        "MinLength": "8",
-                        "NoEcho": "true"
-                }
-        },
+	"Parameters": {
+		"BaseUtilityIP": {
+			"Type": "String",
+			"Default": "0.0.0.0/0",
+			"Description": "Please provide the range of external IP addresses permitted to the utility box via ssh. Default is 0.0.0.0/0 but strongly recommended this be changed",
+			"AllowedPattern" : ".+"
+		},
+		"BaseAdminExtIP": {
+			"Type": "String",
+			"Default": "0.0.0.0/0",
+			"Description": "Please provide the range of external IP addresses permitted to the admin server. Default is 0.0.0.0/0 but strongly recommended this be changed",
+			"AllowedPattern" : ".+"
+		},
+		"BaseAMI": {
+			"Type": "AWS::EC2::Image::Id",
+			"Description": "For advanced users only. Please leave as is unless you know what you are doing",
+			"Default": "ami-0c34246f",
+			"AllowedPattern" : ".+"
+		},
+		"AdminEC2Role": {
+			"Type": "String",
+			"Description": "Admin Role. To be assigned to Admin ASG Only",
+			"AllowedPattern" : ".+"
+		},
+		"UtilitiesEC2Role": {
+			"Type": "String",
+			"Description": "Utilities Role. To be assigned to all other hosts. Sufficient access to write to specific parts of S3 and read from the rest. No Cloud Formation Creation abilities",
+			"AllowedPattern" : ".+"
+		},
+		"AdminEC2RolePrincipal": {
+			"Type": "String",
+			"Description": "The Principal (Currently not required but we take in as a paramter anyway fo future use)",
+			"AllowedPattern" : ".+"
+		},
+		"UtilitiesEC2RolePrincipal": {
+			"Type": "String",
+			"Description": "The Principal (so we can apply to S3 bucket policy)",
+			"AllowedPattern" : ".+"
+		},
+		"IntKeyPair": {
+			"Type": "AWS::EC2::KeyPair::KeyName",
+			"Description": "Internal Keypair to be used for all internal systems",
+			"AllowedPattern" : ".+"
+		},
+		"ExtKeyPair": {
+			"Type": "AWS::EC2::KeyPair::KeyName",
+			"Description": "You need to create a keypair for external access to the utility box. See README.md for more information",
+			"AllowedPattern" : ".+"
+		},
+		"CertificateArn": {
+			"Type": "String",
+			"Description": "ARN of key / certificate to use for SSL to the Load Balancer",
+			"AllowedPattern" : ".+"
+		},
+		"InfraAlertEmail": {
+			"Type": "String",
+			"Description": "Please provide an valid email address for infrastructure alerts. This will be used for all monitoring alerts",
+			"AllowedPattern" : ".+"
+		},
+		"AdminUsername": {
+			"Type": "String",
+			"Description": "Please provide an administrator username for the admin server / aws console",
+			"AllowedPattern" : ".+"
+		},
+		"AdminPassword": {
+			"Type": "String",
+			"Description": "Please provide an administrator password for the admin server / aws console",
+			"MinLength": "8",
+			"NoEcho": "true",
+			"AllowedPattern" : ".+"
+		},
+		"StandardUsername": {
+			"Type": "String",
+			"Description": "Please provide an standard username for the admin server / aws console",
+			"AllowedPattern" : ".+"
+		},
+		"StandardPassword": {
+			"Type": "String",
+			"Description": "Please provide an standard password for the admin server / aws console",
+			"MinLength": "8",
+			"NoEcho": "true",
+			"AllowedPattern" : ".+"
+		}
+	},
 
-        "Resources": {
-        "VPC": {
-            "Type": "AWS::EC2::VPC",
-            "Properties": {
-                                "CidrBlock": "10.0.0.0/16",
-                                "EnableDnsSupport": true,
-                                "EnableDnsHostnames": true,
-                                "Tags": [{
-                                        "Key": "Name",
-                                        "Value": {
-                                                "Fn::Join": ["-", [
-                                                                {"Ref": "AWS::StackName"},
-                                                                "vpc"
-                                                        ]
-                                                ]
-                                        }
-                                }]
-                        }
-                },
-                "VPCSubnetAZ1AdminPublic": {
-                        "Type": "AWS::EC2::Subnet",
-                        "Properties": {
-                                "CidrBlock": "10.0.8.0/21",
-                                "AvailabilityZone": "ap-southeast-2a",
-                                "MapPublicIpOnLaunch": "true",
-                                "VpcId": {
-                                        "Ref": "VPC"
-                                },
-                                "Tags": [{
-                                        "Key": "Name",
-                                        "Value": {
-                                                "Fn::Join": ["-", [
-                                                                {"Ref": "AWS::StackName"},
-                                                                "vpc-subnet-az1-admin-public"
-                                                        ]
-                                                ]
-                                        }
-                                }]
-                        }
-                        },
-                "VPCSubnetAZ2AdminPublic": {
-                        "Type": "AWS::EC2::Subnet",
-                        "Properties": {
-                                "CidrBlock": "10.0.16.0/21",
-                                "AvailabilityZone": "ap-southeast-2b",
-                                "MapPublicIpOnLaunch": "true",
-                                "VpcId": {
-                                        "Ref": "VPC"
-                                },
-                                "Tags": [{
-                                        "Key": "Name",
-                                        "Value": {
-                                                "Fn::Join": ["-", [
-                                                                {"Ref": "AWS::StackName"},
-                                                                "vpc-subnet-az2-admin-public"
-                                                        ]
-                                                ]
-                                        }
-                                }]
-                        }
-                },
-                "VPCSubnetAZ3AdminPublic": {
-                        "Type": "AWS::EC2::Subnet",
-                        "Properties": {
-                                "CidrBlock": "10.0.24.0/21",
-                                "AvailabilityZone": "ap-southeast-2c",
-                                "MapPublicIpOnLaunch": "true",
-                                "VpcId": {
-                                        "Ref": "VPC"
-                                },
-                                "Tags": [{
-                                        "Key": "Name",
-                                        "Value": {
-                                                "Fn::Join": ["-", [
-                                                                {"Ref": "AWS::StackName"},
-                                                                "vpc-subnet-az3-admin-public"
-                                                        ]
-                                                ]
-                                        }
-                                }]
-                        }
-                },
-                "VPCIGWPublic": {
-                        "Type" : "AWS::EC2::InternetGateway",
-                        "Properties" : {
-                                "Tags" : [{
-                                        "Key": "Name",
-                                        "Value": {
-                                                "Fn::Join": ["-", [
-                                                                {"Ref": "AWS::StackName"},
-                                                                "vpc-igw-public"
-                                                        ]
-                                                ]
-                                        }
-                                }]
-                        },
-                        "DependsOn": [
-                                "VPC",
-                                "VPCSubnetAZ1AdminPublic",
-                                "VPCSubnetAZ2AdminPublic",
-                                "VPCSubnetAZ3AdminPublic"
-                        ]
-                },
-                "VPCRouteTBLAdminPublic": {
-                        "Type" : "AWS::EC2::RouteTable",
-                        "Properties" : {
-                                "VpcId" : {
-                                        "Ref": "VPC"
-                                },
-                                "Tags" : [{
-                                        "Key": "Name",
-                                        "Value": {
-                                                "Fn::Join": ["-", [
-                                                                {"Ref": "AWS::StackName"},
-                                                                "vpc-routetbl-admin-public"
-                                                        ]
-                                                ]
-                                        }
-                                }]
-                        },
-                        "DependsOn": [
-                                "VPCIGWPublic"
-                        ]
-                },
-                "VPCIGWPublicAttach": {
-                        "Type" : "AWS::EC2::VPCGatewayAttachment",
-                        "Properties" : {
-                                "InternetGatewayId" : {
-                                        "Ref": "VPCIGWPublic"
-                                },
-                                "VpcId" : {
-                                        "Ref": "VPC"
-                                }
-                        },
-                        "DependsOn": [
-                                "VPCIGWPublic"
-                        ]
-                },
-                "VPCRouteTBLAdminPublicAssocSN1": {
-                        "Type" : "AWS::EC2::SubnetRouteTableAssociation",
-                        "Properties" : {
-                                "RouteTableId" : {
-                                        "Ref": "VPCRouteTBLAdminPublic"
-                                },
-                                "SubnetId" : {
-                                        "Ref": "VPCSubnetAZ1AdminPublic"
-                                }
-                        },
-                        "DependsOn": [
-                                "VPCRouteTBLAdminPublic"
-                        ]
-                },
-                "VPCRouteTBLAdminPublicAssocSN2": {
-                        "Type" : "AWS::EC2::SubnetRouteTableAssociation",
-                        "Properties" : {
-                                "RouteTableId" : {
-                                        "Ref": "VPCRouteTBLAdminPublic"
-                                },
-                                "SubnetId" : {
-                                        "Ref": "VPCSubnetAZ2AdminPublic"
-                                }
-                        },
-                        "DependsOn": [
-                                "VPCRouteTBLAdminPublic"
-                        ]
-                },
-                "VPCRouteTBLAdminPublicAssocSN3": {
-                        "Type" : "AWS::EC2::SubnetRouteTableAssociation",
-                        "Properties" : {
-                                "RouteTableId" : {
-                                        "Ref": "VPCRouteTBLAdminPublic"
-                                },
-                                "SubnetId" : {
-                                        "Ref": "VPCSubnetAZ3AdminPublic"
-                                }
-                        },
-                        "DependsOn": [
-                                "VPCRouteTBLAdminPublic"
-                        ]
-                },
-                "VPCRouteTBLAdminPublicCFGIGW": {
-                        "Type" : "AWS::EC2::Route",
-                        "Properties" : {
-                                "DestinationCidrBlock" : "0.0.0.0/0",
-                                "GatewayId" : {
-                                        "Ref": "VPCIGWPublic"
-                                },
-                                "RouteTableId" : {
-                                        "Ref": "VPCRouteTBLAdminPublic"
-                                }
-                        },
-                        "DependsOn": [
-                                "VPCRouteTBLAdminPublicAssocSN1",
-                                "VPCRouteTBLAdminPublicAssocSN2",
-                                "VPCRouteTBLAdminPublicAssocSN3",
-                                "VPCIGWPublicAttach"
-                        ]
-                },
-                "VPCSubnetAZ1AdminPrivate": {
-                        "Type": "AWS::EC2::Subnet",
-                        "Properties": {
-                                "CidrBlock": "10.0.32.0/21",
-                                "AvailabilityZone": "ap-southeast-2a",
-                                "VpcId": {
-                                        "Ref": "VPC"
-                                },
-                                "Tags": [{
-                                        "Key": "Name",
-                                        "Value": {
-                                                "Fn::Join": ["-", [
-                                                                {"Ref": "AWS::StackName"},
-                                                                "vpc-subnet-az1-admin-private"
-                                                        ]
-                                                ]
-                                        }
-                                }]
-                        }
-                },
-                "VPCSubnetAZ2AdminPrivate": {
-                        "Type": "AWS::EC2::Subnet",
-                        "Properties": {
-                                "CidrBlock": "10.0.40.0/21",
-                                "AvailabilityZone": "ap-southeast-2b",
-                                "VpcId": {
-                                        "Ref": "VPC"
-                                },
-                                "Tags": [{
-                                        "Key": "Name",
-                                        "Value": {
-                                                "Fn::Join": ["-", [
-                                                                {"Ref": "AWS::StackName"},
-                                                                "vpc-subnet-az2-admin-private"
-                                                        ]
-                                                ]
-                                        }
-                                }]
-                        }
-                },
-                "VPCSubnetAZ3AdminPrivate": {
-                        "Type": "AWS::EC2::Subnet",
-                        "Properties": {
-                                "CidrBlock": "10.0.48.0/21",
-                                "AvailabilityZone": "ap-southeast-2c",
-                                "VpcId": {
-                                        "Ref": "VPC"
-                                },
-                                "Tags": [{
-                                        "Key": "Name",
-                                        "Value": {
-                                                "Fn::Join": ["-", [
-                                                                {"Ref": "AWS::StackName"},
-                                                                "vpc-subnet-az3-admin-private"
-                                                        ]
-                                                ]
-                                        }
-                                }]
-                        }
-                },
-                "VPCNATAZ1PrivateEIP": {
-                        "Type" : "AWS::EC2::EIP",
-                        "Properties" : {}
-                },
-                "VPCNATAZ1Private": {
-                        "Type" : "AWS::EC2::NatGateway",
-                                "Properties" : {
-                                "AllocationId" : {
-                                        "Fn::GetAtt": [
-                                                "VPCNATAZ1PrivateEIP",
-                                                "AllocationId"
-                                        ]
-                                },
-                                "SubnetId" : {
-                                        "Ref": "VPCSubnetAZ1AdminPublic"
-                                },
-                                "Tags" : [{
-                                        "Key": "Name",
-                                        "Value": {
-                                                "Fn::Join": ["-", [
-                                                                {"Ref": "AWS::StackName"},
-                                                                "vpc-nat-az1-private"
-                                                        ]
-                                                ]
-                                        }
-                                }]
-                        },
-                        "DependsOn": [
-                                "VPCNATAZ1PrivateEIP",
-                                "VPCIGWPublicAttach"
-                        ]
-                },
-                "VPCRouteTBLAdminPrivate": {
-                        "Type" : "AWS::EC2::RouteTable",
-                        "Properties" : {
-                                "VpcId" : {
-                                        "Ref": "VPC"
-                                },
-                                "Tags" : [{
-                                        "Key": "Name",
-                                        "Value": {
-                                                "Fn::Join": ["-", [
-                                                                {"Ref": "AWS::StackName"},
-                                                                "vpc-routetbl-admin-private"
-                                                        ]
-                                                ]
-                                        }
-                                }]
-                        },
-                        "DependsOn": [
-                                "VPCNATAZ1Private"
-                        ]
-                },
-                "VPCRouteTBLAdminPrivateAssocSN1": {
-                        "Type" : "AWS::EC2::SubnetRouteTableAssociation",
-                        "Properties" : {
-                                "RouteTableId" : {
-                                        "Ref": "VPCRouteTBLAdminPrivate"
-                                },
-                                "SubnetId" : {
-                                        "Ref": "VPCSubnetAZ1AdminPrivate"
-                                }
-                        },
-                        "DependsOn": [
-                                "VPCRouteTBLAdminPrivate"
-                        ]
-                },
-                "VPCRouteTBLAdminPrivateAssocSN2": {
-                        "Type" : "AWS::EC2::SubnetRouteTableAssociation",
-                        "Properties" : {
-                                "RouteTableId" : {
-                                        "Ref": "VPCRouteTBLAdminPrivate"
-                                },
-                                "SubnetId" : {
-                                        "Ref": "VPCSubnetAZ2AdminPrivate"
-                                }
-                        },
-                        "DependsOn": [
-                                "VPCRouteTBLAdminPrivate"
-                        ]
-                },
-                "VPCRouteTBLAdminPrivateAssocSN3": {
-                        "Type" : "AWS::EC2::SubnetRouteTableAssociation",
-                        "Properties" : {
-                                "RouteTableId" : {
-                                        "Ref": "VPCRouteTBLAdminPrivate"
-                                },
-                                "SubnetId" : {
-                                        "Ref": "VPCSubnetAZ3AdminPrivate"
-                                }
-                        },
-                        "DependsOn": [
-                                "VPCRouteTBLAdminPrivate"
-                        ]
-                },
-                "MyWordpressSiteVPCRouteTBLWebPrivateCFGNAT": {
-                        "Type" : "AWS::EC2::Route",
-                        "Properties" : {
-                                "DestinationCidrBlock" : "0.0.0.0/0",
-                                "NatGatewayId" : {
-                                        "Ref": "VPCNATAZ1Private"
-                                },
-                                "RouteTableId" : {
-                                        "Ref": "VPCRouteTBLAdminPrivate"
-                                }
-                        },
-                        "DependsOn": [
-                                "VPCRouteTBLAdminPrivateAssocSN1",
-                                "VPCRouteTBLAdminPrivateAssocSN2",
-                                "VPCRouteTBLAdminPrivateAssocSN3",
-                                "VPCRouteTBLAdminPrivate"
-                        ]
-                },
+	"Resources": {
+	"VPC": {
+	    "Type": "AWS::EC2::VPC",
+	    "Properties": {
+				"CidrBlock": "10.0.0.0/16",
+				"EnableDnsSupport": true,
+				"EnableDnsHostnames": true,
+				"Tags": [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Join": ["-", [
+								{"Ref": "AWS::StackName"},
+								"vpc"
+							]
+						]
+					}
+				}]
+			}
+		},
+		"VPCSubnetAZ1AdminPublic": {
+			"Type": "AWS::EC2::Subnet",
+			"Properties": {
+				"CidrBlock": "10.0.8.0/21",
+				"AvailabilityZone": "ap-southeast-2a",
+				"MapPublicIpOnLaunch": "true",
+				"VpcId": {
+					"Ref": "VPC"
+				},
+				"Tags": [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Join": ["-", [
+								{"Ref": "AWS::StackName"},
+								"vpc-subnet-az1-admin-public"
+							]
+						]
+					}
+				}]
+			}
+			},
+		"VPCSubnetAZ2AdminPublic": {
+			"Type": "AWS::EC2::Subnet",
+			"Properties": {
+				"CidrBlock": "10.0.16.0/21",
+				"AvailabilityZone": "ap-southeast-2b",
+				"MapPublicIpOnLaunch": "true",
+				"VpcId": {
+					"Ref": "VPC"
+				},
+				"Tags": [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Join": ["-", [
+								{"Ref": "AWS::StackName"},
+								"vpc-subnet-az2-admin-public"
+							]
+						]
+					}
+				}]
+			}
+		},
+		"VPCSubnetAZ3AdminPublic": {
+			"Type": "AWS::EC2::Subnet",
+			"Properties": {
+				"CidrBlock": "10.0.24.0/21",
+				"AvailabilityZone": "ap-southeast-2c",
+				"MapPublicIpOnLaunch": "true",
+				"VpcId": {
+					"Ref": "VPC"
+				},
+				"Tags": [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Join": ["-", [
+								{"Ref": "AWS::StackName"},
+								"vpc-subnet-az3-admin-public"
+							]
+						]
+					}
+				}]
+			}
+		},
+		"VPCIGWPublic": {
+			"Type" : "AWS::EC2::InternetGateway",
+			"Properties" : {
+				"Tags" : [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Join": ["-", [
+								{"Ref": "AWS::StackName"},
+								"vpc-igw-public"
+							]
+						]
+					}
+				}]
+			},
+			"DependsOn": [
+				"VPC",
+				"VPCSubnetAZ1AdminPublic",
+				"VPCSubnetAZ2AdminPublic",
+				"VPCSubnetAZ3AdminPublic"
+			]
+		},
+		"VPCRouteTBLAdminPublic": {
+			"Type" : "AWS::EC2::RouteTable",
+			"Properties" : {
+				"VpcId" : {
+					"Ref": "VPC"
+				},
+				"Tags" : [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Join": ["-", [
+								{"Ref": "AWS::StackName"},
+								"vpc-routetbl-admin-public"
+							]
+						]
+					}
+				}]
+			},
+			"DependsOn": [
+				"VPCIGWPublic"
+			]
+		},
+		"VPCIGWPublicAttach": {
+			"Type" : "AWS::EC2::VPCGatewayAttachment",
+			"Properties" : {
+				"InternetGatewayId" : {
+					"Ref": "VPCIGWPublic"
+				},
+				"VpcId" : {
+					"Ref": "VPC"
+				}
+			},
+			"DependsOn": [
+				"VPCIGWPublic"
+			]
+		},
+		"VPCRouteTBLAdminPublicAssocSN1": {
+			"Type" : "AWS::EC2::SubnetRouteTableAssociation",
+			"Properties" : {
+				"RouteTableId" : {
+					"Ref": "VPCRouteTBLAdminPublic"
+				},
+				"SubnetId" : {
+					"Ref": "VPCSubnetAZ1AdminPublic"
+				}
+			},
+			"DependsOn": [
+				"VPCRouteTBLAdminPublic"
+			]
+		},
+		"VPCRouteTBLAdminPublicAssocSN2": {
+			"Type" : "AWS::EC2::SubnetRouteTableAssociation",
+			"Properties" : {
+				"RouteTableId" : {
+					"Ref": "VPCRouteTBLAdminPublic"
+				},
+				"SubnetId" : {
+					"Ref": "VPCSubnetAZ2AdminPublic"
+				}
+			},
+			"DependsOn": [
+				"VPCRouteTBLAdminPublic"
+			]
+		},
+		"VPCRouteTBLAdminPublicAssocSN3": {
+			"Type" : "AWS::EC2::SubnetRouteTableAssociation",
+			"Properties" : {
+				"RouteTableId" : {
+					"Ref": "VPCRouteTBLAdminPublic"
+				},
+				"SubnetId" : {
+					"Ref": "VPCSubnetAZ3AdminPublic"
+				}
+			},
+			"DependsOn": [
+				"VPCRouteTBLAdminPublic"
+			]
+		},
+		"VPCRouteTBLAdminPublicCFGIGW": {
+			"Type" : "AWS::EC2::Route",
+			"Properties" : {
+				"DestinationCidrBlock" : "0.0.0.0/0",
+				"GatewayId" : {
+					"Ref": "VPCIGWPublic"
+				},
+				"RouteTableId" : {
+					"Ref": "VPCRouteTBLAdminPublic"
+				}
+			},
+			"DependsOn": [
+				"VPCRouteTBLAdminPublicAssocSN1",
+				"VPCRouteTBLAdminPublicAssocSN2",
+				"VPCRouteTBLAdminPublicAssocSN3",
+				"VPCIGWPublicAttach"
+			]
+		},
+		"VPCSubnetAZ1AdminPrivate": {
+			"Type": "AWS::EC2::Subnet",
+			"Properties": {
+				"CidrBlock": "10.0.32.0/21",
+				"AvailabilityZone": "ap-southeast-2a",
+				"VpcId": {
+					"Ref": "VPC"
+				},
+				"Tags": [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Join": ["-", [
+								{"Ref": "AWS::StackName"},
+								"vpc-subnet-az1-admin-private"
+							]
+						]
+					}
+				}]
+			}
+		},
+		"VPCSubnetAZ2AdminPrivate": {
+			"Type": "AWS::EC2::Subnet",
+			"Properties": {
+				"CidrBlock": "10.0.40.0/21",
+				"AvailabilityZone": "ap-southeast-2b",
+				"VpcId": {
+					"Ref": "VPC"
+				},
+				"Tags": [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Join": ["-", [
+								{"Ref": "AWS::StackName"},
+								"vpc-subnet-az2-admin-private"
+							]
+						]
+					}
+				}]
+			}
+		},
+		"VPCSubnetAZ3AdminPrivate": {
+			"Type": "AWS::EC2::Subnet",
+			"Properties": {
+				"CidrBlock": "10.0.48.0/21",
+				"AvailabilityZone": "ap-southeast-2c",
+				"VpcId": {
+					"Ref": "VPC"
+				},
+				"Tags": [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Join": ["-", [
+								{"Ref": "AWS::StackName"},
+								"vpc-subnet-az3-admin-private"
+							]
+						]
+					}
+				}]
+			}
+		},
+		"VPCNATAZ1PrivateEIP": {
+			"Type" : "AWS::EC2::EIP",
+			"Properties" : {}
+		},
+		"VPCNATAZ1Private": {
+			"Type" : "AWS::EC2::NatGateway",
+				"Properties" : {
+				"AllocationId" : {
+					"Fn::GetAtt": [
+						"VPCNATAZ1PrivateEIP",
+						"AllocationId"
+					]
+				},
+				"SubnetId" : {
+					"Ref": "VPCSubnetAZ1AdminPublic"
+				},
+				"Tags" : [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Join": ["-", [
+								{"Ref": "AWS::StackName"},
+								"vpc-nat-az1-private"
+							]
+						]
+					}
+				}]
+			},
+			"DependsOn": [
+				"VPCNATAZ1PrivateEIP",
+				"VPCIGWPublicAttach"
+			]
+		},
+		"VPCRouteTBLAdminPrivate": {
+			"Type" : "AWS::EC2::RouteTable",
+			"Properties" : {
+				"VpcId" : {
+					"Ref": "VPC"
+				},
+				"Tags" : [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Join": ["-", [
+								{"Ref": "AWS::StackName"},
+								"vpc-routetbl-admin-private"
+							]
+						]
+					}
+				}]
+			},
+			"DependsOn": [
+				"VPCNATAZ1Private"
+			]
+		},
+		"VPCRouteTBLAdminPrivateAssocSN1": {
+			"Type" : "AWS::EC2::SubnetRouteTableAssociation",
+			"Properties" : {
+				"RouteTableId" : {
+					"Ref": "VPCRouteTBLAdminPrivate"
+				},
+				"SubnetId" : {
+					"Ref": "VPCSubnetAZ1AdminPrivate"
+				}
+			},
+			"DependsOn": [
+				"VPCRouteTBLAdminPrivate"
+			]
+		},
+		"VPCRouteTBLAdminPrivateAssocSN2": {
+			"Type" : "AWS::EC2::SubnetRouteTableAssociation",
+			"Properties" : {
+				"RouteTableId" : {
+					"Ref": "VPCRouteTBLAdminPrivate"
+				},
+				"SubnetId" : {
+					"Ref": "VPCSubnetAZ2AdminPrivate"
+				}
+			},
+			"DependsOn": [
+				"VPCRouteTBLAdminPrivate"
+			]
+		},
+		"VPCRouteTBLAdminPrivateAssocSN3": {
+			"Type" : "AWS::EC2::SubnetRouteTableAssociation",
+			"Properties" : {
+				"RouteTableId" : {
+					"Ref": "VPCRouteTBLAdminPrivate"
+				},
+				"SubnetId" : {
+					"Ref": "VPCSubnetAZ3AdminPrivate"
+				}
+			},
+			"DependsOn": [
+				"VPCRouteTBLAdminPrivate"
+			]
+		},
+		"MyWordpressSiteVPCRouteTBLWebPrivateCFGNAT": {
+			"Type" : "AWS::EC2::Route",
+			"Properties" : {
+				"DestinationCidrBlock" : "0.0.0.0/0",
+				"NatGatewayId" : {
+					"Ref": "VPCNATAZ1Private"
+				},
+				"RouteTableId" : {
+					"Ref": "VPCRouteTBLAdminPrivate"
+				}
+			},
+			"DependsOn": [
+				"VPCRouteTBLAdminPrivateAssocSN1",
+				"VPCRouteTBLAdminPrivateAssocSN2",
+				"VPCRouteTBLAdminPrivateAssocSN3",
+				"VPCRouteTBLAdminPrivate"
+			]
+		},
 
-                "LGSysWebStack": {
-                        "Type" : "AWS::Logs::LogGroup",
-                        "Properties" : {
-                                "LogGroupName" : "/var/log/syslog",
-                                "RetentionInDays" : "30"
-                        }
-                },
-                "SGUtility": {
-                        "Type" : "AWS::EC2::SecurityGroup",
-                        "Properties" : {
-                                "GroupDescription" : "Admin security group for SSH access from local client. ICMP protocols NOT permitted",
-                                "VpcId" : {
-                                        "Ref": "VPC"
-                                },
-                                "SecurityGroupIngress" : [
-                                        {
-                                                "IpProtocol" : "tcp",
-                                                "FromPort" : "22",
-                                                "ToPort" : "22",
-                                                "CidrIp" : {
-                                                        "Ref": "BaseUtilityIP"
-                                                }
-                                        }
-                                ],
-                                "Tags" : [{
-                                        "Key": "Name",
-                                        "Value": {
-                                                "Fn::Join": ["-", [
-                                                                {"Ref": "AWS::StackName"},
-                                                                "sg-utility"
-                                                        ]
-                                                ]
-                                        }
-                                }]
-                        }
-                },
-                "SNSTopicInfraAlert": {
-                        "Type" : "AWS::SNS::Topic",
-                        "Properties" : {
-                                "DisplayName" : {
-                                        "Fn::Join": ["-", [
-                                                        {"Ref": "AWS::StackName"},
-                                                        "sns-infra-alert"
-                                                ]
-                                        ]
-                                },
-                                "TopicName" : {
-                                        "Fn::Join": ["-", [
-                                                        {"Ref": "AWS::StackName"},
-                                                        "sns-infra-alert"
-                                                ]
-                                        ]
-                                }
-                        }
-                },
-                "SNSTopicInfraAlertSubscripe": {
-                        "Type" : "AWS::SNS::Subscription",
-                        "Properties" : {
-                                "Endpoint": {
-                                        "Ref": "InfraAlertEmail"
-                                },
-                                "Protocol": "Email",
-                                "TopicArn": {
-                                        "Ref": "SNSTopicInfraAlert"
-                                }
-                        },
-                        "DependsOn": [
-                                "SNSTopicInfraAlert"
-                        ]
-                },
-                "EC2UtilityAZ1": {
-                        "Type" : "AWS::EC2::Instance",
-                        "Properties" : {
-                                "AvailabilityZone" : {
-                                        "Fn::Join": ["", [
-                                                        {"Ref" : "AWS::Region"},
-                                                        "a"
-                                                ]
-                                        ]
-                                },
-                                "BlockDeviceMappings" : [{
-                                        "DeviceName": "xvda",
-                                        "Ebs": {
-                                                "VolumeType": "gp2",
-                                                "VolumeSize": "20"
-                                        }
-                                }],
-                                "ImageId" : {
-                                        "Ref": "BaseAMI"
-                                },
-                                "InstanceType" : "t2.micro",
-                                "IamInstanceProfile": {
-                                        "Ref": "UtilitiesEC2Role"
-                                },
-                                "KeyName" : {
-                                        "Ref": "ExtKeyPair"
-                                },
-                                "SecurityGroupIds": [
-                                        {
-                                                "Ref":"SGUtility"
-                                        }
-                                ],
-                                "SubnetId": {
-                                        "Ref": "VPCSubnetAZ1AdminPublic"
-                                },
-                                "Tags": [{
-                                        "Key": "Name",
-                                        "Value": {
-                                                "Fn::Join": ["-", [
-                                                                {"Ref": "AWS::StackName"},
-                                                                "ec2-utility-az1"
-                                                        ]
-                                                ]
-                                        }
-                                }],
-                                "UserData": {
-                                        "Fn::Base64": {
-                                                "Fn::Join": ["\n",
-                                                        [
-                                                                "#!/bin/bash",
-                                                                "apt-get update",
-                                                                "apt-get upgrade -y",
-                                                                "apt-get install -y ansible"
-                                                        ]
-                                                ]
-                                        }
-                                }
-                        },
-                        "DependsOn": [
-                                "SGUtility"
-                        ]
-                },
-                "EC2UtilityAZ1EIP": {
-                        "Type" : "AWS::EC2::EIP",
-                        "Properties" : {
-                                "InstanceId" : {
-                                        "Ref":"EC2UtilityAZ1"
-                                }
-                        },
-                        "DependsOn": [
-                                "EC2UtilityAZ1"
-                        ]
-                },
-                "CWUtilityAZ1CPU": {
-                        "Type" : "AWS::CloudWatch::Alarm",
-                        "Properties" : {
-                                "ActionsEnabled" : "true",
-                                "AlarmActions" : [{
-                                        "Ref": "SNSTopicInfraAlert"
-                                }],
-                                "AlarmDescription" : "Notify when CPU has breached 50% over for more than 5 minutes",
-                                "AlarmName" : {
-                                        "Fn::Join": ["-", [
-                                                        {"Ref": "AWS::StackName"},
-                                                        "cw-utility-az1-cpu"
-                                                ]
-                                        ]
-                                },
-                                "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
-                                "EvaluationPeriods" : "1",
-                                "MetricName" : "CPUUtilization",
-                                "Namespace" : "AWS/EC2",
-                                "Period" : "300",
-                                "Statistic" : "Average",
-                                "Threshold" : "50",
-                                "Dimensions" : [{
-                                        "Name": "InstanceId",
-                                        "Value": {
-                                                "Ref":"EC2UtilityAZ1"
-                                        }
-                                }]
-                        },
-                        "DependsOn":[
-                                "SNSTopicInfraAlertSubscripe",
-                                "EC2UtilityAZ1"
-                        ]
-                },
+		"LGSysWebStack": {
+			"Type" : "AWS::Logs::LogGroup",
+			"Properties" : {
+				"LogGroupName" : "/var/log/syslog",
+				"RetentionInDays" : "30"
+			}
+		},
+		"SGUtility": {
+			"Type" : "AWS::EC2::SecurityGroup",
+			"Properties" : {
+				"GroupDescription" : "Admin security group for SSH access from local client. ICMP protocols NOT permitted",
+				"VpcId" : {
+					"Ref": "VPC"
+				},
+				"SecurityGroupIngress" : [
+					{
+						"IpProtocol" : "tcp",
+						"FromPort" : "22",
+						"ToPort" : "22",
+						"CidrIp" : {
+							"Ref": "BaseUtilityIP"
+						}
+					}
+				],
+				"Tags" : [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Join": ["-", [
+								{"Ref": "AWS::StackName"},
+								"sg-utility"
+							]
+						]
+					}
+				}]
+			}
+		},
+		"SNSTopicInfraAlert": {
+			"Type" : "AWS::SNS::Topic",
+			"Properties" : {
+				"DisplayName" : {
+					"Fn::Join": ["-", [
+							{"Ref": "AWS::StackName"},
+							"sns-infra-alert"
+						]
+					]
+				},
+				"TopicName" : {
+					"Fn::Join": ["-", [
+							{"Ref": "AWS::StackName"},
+							"sns-infra-alert"
+						]
+					]
+				}
+			}
+		},
+		"SNSTopicInfraAlertSubscripe": {
+			"Type" : "AWS::SNS::Subscription",
+			"Properties" : {
+				"Endpoint": {
+					"Ref": "InfraAlertEmail"
+				},
+				"Protocol": "Email",
+				"TopicArn": {
+					"Ref": "SNSTopicInfraAlert"
+				}
+			},
+			"DependsOn": [
+				"SNSTopicInfraAlert"
+			]
+		},
+		"EC2UtilityAZ1": {
+			"Type" : "AWS::EC2::Instance",
+			"Properties" : {
+				"AvailabilityZone" : {
+					"Fn::Join": ["", [
+							{"Ref" : "AWS::Region"},
+							"a"
+						]
+					]
+				},
+				"BlockDeviceMappings" : [{
+					"DeviceName": "xvda",
+					"Ebs": {
+						"VolumeType": "gp2",
+						"VolumeSize": "20"
+					}
+				}],
+				"ImageId" : {
+					"Ref": "BaseAMI"
+				},
+				"InstanceType" : "t2.micro",
+				"IamInstanceProfile": {
+					"Ref": "UtilitiesEC2Role"
+				},
+				"KeyName" : {
+					"Ref": "ExtKeyPair"
+				},
+				"SecurityGroupIds": [
+					{
+						"Ref":"SGUtility"
+					}
+				],
+				"SubnetId": {
+					"Ref": "VPCSubnetAZ1AdminPublic"
+				},
+				"Tags": [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Join": ["-", [
+								{"Ref": "AWS::StackName"},
+								"ec2-utility-az1"
+							]
+						]
+					}
+				}],
+				"UserData": {
+					"Fn::Base64": {
+						"Fn::Join": ["\n",
+							[
+								"#!/bin/bash",
+								"apt-get update",
+								"apt-get upgrade -y",
+								"apt-get install -y ansible"
+							]
+						]
+					}
+				}
+			},
+			"DependsOn": [
+				"SGUtility"
+			]
+		},
+		"EC2UtilityAZ1EIP": {
+			"Type" : "AWS::EC2::EIP",
+			"Properties" : {
+				"InstanceId" : {
+					"Ref":"EC2UtilityAZ1"
+				}
+			},
+			"DependsOn": [
+				"EC2UtilityAZ1"
+			]
+		},
+		"CWUtilityAZ1CPU": {
+			"Type" : "AWS::CloudWatch::Alarm",
+			"Properties" : {
+				"ActionsEnabled" : "true",
+				"AlarmActions" : [{
+					"Ref": "SNSTopicInfraAlert"
+				}],
+				"AlarmDescription" : "Notify when CPU has breached 50% over for more than 5 minutes",
+				"AlarmName" : {
+					"Fn::Join": ["-", [
+							{"Ref": "AWS::StackName"},
+							"cw-utility-az1-cpu"
+						]
+					]
+				},
+				"ComparisonOperator" : "GreaterThanOrEqualToThreshold",
+				"EvaluationPeriods" : "1",
+				"MetricName" : "CPUUtilization",
+				"Namespace" : "AWS/EC2",
+				"Period" : "300",
+				"Statistic" : "Average",
+				"Threshold" : "50",
+				"Dimensions" : [{
+					"Name": "InstanceId",
+					"Value": {
+						"Ref":"EC2UtilityAZ1"
+					}
+				}]
+			},
+			"DependsOn":[
+				"SNSTopicInfraAlertSubscripe",
+				"EC2UtilityAZ1"
+			]
+		},
 
 
-                "SGAdminStackALB" : {
-                        "Type" : "AWS::EC2::SecurityGroup",
-                        "Properties" : {
-                                "GroupDescription" : "Standard Security group for AdminStack Application Load Balancer. Permit 443 and 80 from 0.0.0.0, Permit ICMP from 10.0.0.0",
-                                "VpcId" : {
-                                        "Ref": "VPC"
-                                },
-                                "SecurityGroupIngress" : [
-                                        {
-                                                "IpProtocol" : "icmp",
-                                                "FromPort" : "-1",
-                                                "ToPort" : "-1",
-                                                "CidrIp" : "10.0.0.0/16"
-                                        },
-                                        {
-                                                "IpProtocol" : "tcp",
-                                                "FromPort" : "443",
-                                                "ToPort" : "443",
-                                                "CidrIp" : {
-                                                        "Ref": "BaseAdminExtIP"
-                                                }
-                                        },
-                                        {
-                                                "IpProtocol" : "tcp",
-                                                "FromPort" : "80",
-                                                "ToPort" : "80",
-                                                "CidrIp" : {
-                                                        "Ref": "BaseAdminExtIP"
-                                                }
-                                        }
-                                ],
-                                "Tags": [{
-                                        "Key": "Name",
-                                        "Value": {
-                                                "Fn::Join": ["-", [
-                                                                {"Ref": "AWS::StackName"},
-                                                                "sg-adminstack-alb"
-                                                        ]
-                                                ]
-                                        }
-                                }]
-                        }
-                },
-                "SGAdminStackLC" : {
-                        "Type" : "AWS::EC2::SecurityGroup",
-                        "Properties" : {
-                                "GroupDescription" : "Standard Security group for AdminStack Launch Config. Permit SSH from Utility Security Group and Own Security Group, Permit 80 from Application ELB, Permit ICMP from 10.0.0.0",
-                                "VpcId" : {
-                                        "Ref": "VPC"
-                                },
-                                "SecurityGroupIngress" : [
-                                        {
-                                                "IpProtocol" : "icmp",
-                                                "FromPort" : "-1",
-                                                "ToPort" : "-1",
-                                                "CidrIp" : "10.0.0.0/16"
-                                        },
-                                        {
-                                                "IpProtocol" : "tcp",
-                                                "FromPort" : "22",
-                                                "ToPort" : "22",
-                                                "SourceSecurityGroupId" : {
-                                                        "Ref": "SGUtility"
-                                                }
-                                        },
-                                        {
-                                                "IpProtocol" : "tcp",
-                                                "FromPort" : "8080",
-                                                "ToPort" : "8080",
-                                                "SourceSecurityGroupId" : {
-                                                        "Ref": "SGAdminStackALB"
-                                                }
-                                        }
-                                ],
-                                "Tags": [{
-                                        "Key": "Name",
-                                        "Value": {
-                                                "Fn::Join": ["-", [
-                                                                {"Ref": "AWS::StackName"},
-                                                                "sg-adminstack-lc"
-                                                        ]
-                                                ]
-                                        }
-                                }]
-                        },
-                        "DependsOn": [
-                                "SGUtility"
-                        ]
-                },
-                "SGAdminStackEFS": {
-                        "Type" : "AWS::EC2::SecurityGroup",
-                        "Properties" : {
-                                "GroupDescription" : "Standard Security group for EFS. Permit 2049 from LC security group, Permit ICMP from 10.0.0.0",
-                                "VpcId" : {
-                                        "Ref": "VPC"
-                                },
-                                "SecurityGroupIngress" : [
-                                        {
-                                                "IpProtocol" : "icmp",
-                                                "FromPort" : "-1",
-                                                "ToPort" : "-1",
-                                                "CidrIp" : "10.0.0.0/16"
-                                        },
-                                        {
-                                                "IpProtocol" : "tcp",
-                                                "FromPort" : "2049",
-                                                "ToPort" : "2049",
-                                                "SourceSecurityGroupId" : {
-                                                        "Ref": "SGAdminStackLC"
-                                                }
-                                        }
-                                ],
-                                "Tags": [{
-                                        "Key": "Name",
-                                        "Value": {
-                                                "Fn::Join": ["-", [
-                                                                {"Ref": "AWS::StackName"},
-                                                                "sg-adminstack-efs"
-                                                        ]
-                                                ]
-                                        }
-                                }]
-                        },
-                        "DependsOn": [
-                                "SGAdminStackLC"
-                        ]
-                },
-                "EFSAdminStack": {
-                        "Type" : "AWS::EFS::FileSystem",
-                        "Properties" : {
-                                "Encrypted" : "true",
-                                "FileSystemTags" : [{
-                                        "Key": "Name",
-                                        "Value": {
-                                                "Fn::Join": ["-", [
-                                                                {"Ref": "AWS::StackName"},
-                                                                "efs-adminstack"
-                                                        ]
-                                                ]
-                                        }
-                                }],
-                                "PerformanceMode" : "generalPurpose"
-                        }
-                },
-                "EFMAZ1AdminStack" : {
-                        "Type" : "AWS::EFS::MountTarget",
-                        "Properties" : {
-                                "FileSystemId" : {
-                                        "Ref": "EFSAdminStack"
-                                },
-                                "SecurityGroups" : [{
-                                        "Ref": "SGAdminStackEFS"
-                                }],
-                                "SubnetId" : {
-                                        "Ref": "VPCSubnetAZ1AdminPrivate"
-                                }
-                        },
-                        "DependsOn": [
-                                "EFSAdminStack",
-                                "VPCSubnetAZ1AdminPrivate"
-                        ]
-                },
-                "EFMAZ2AdminStack" : {
-                        "Type" : "AWS::EFS::MountTarget",
-                        "Properties" : {
-                                "FileSystemId" : {
-                                        "Ref": "EFSAdminStack"
-                                },
-                                "SecurityGroups" : [{
-                                        "Ref": "SGAdminStackEFS"
-                                }],
-                                "SubnetId" : {
-                                        "Ref": "VPCSubnetAZ2AdminPrivate"
-                                }
-                        },
-                        "DependsOn": [
-                                "EFSAdminStack",
-                                "VPCSubnetAZ2AdminPrivate"
-                        ]
-                },
-                "EFMAZ3AdminStack" : {
-                        "Type" : "AWS::EFS::MountTarget",
-                        "Properties" : {
-                                "FileSystemId" : {
-                                        "Ref": "EFSAdminStack"
-                                },
-                                "SecurityGroups" : [{
-                                        "Ref": "SGAdminStackEFS"
-                                }],
-                                "SubnetId" : {
-                                        "Ref": "VPCSubnetAZ3AdminPrivate"
-                                }
-                        },
-                        "DependsOn": [
-                                "EFSAdminStack",
-                                "VPCSubnetAZ3AdminPrivate"
-                        ]
-                },
-                "LCAdminStack": {
-                        "Type" : "AWS::AutoScaling::LaunchConfiguration",
-                        "Properties" : {
-                                "BlockDeviceMappings" : [{
-                                        "DeviceName": "xvda",
-                                        "Ebs": {
-                                                "VolumeType": "gp2",
-                                                "VolumeSize": "20"
-                                        }
-                                }],
-                                "IamInstanceProfile" : {
-                                        "Ref": "AdminEC2Role"
-                                },
-                                "ImageId" : {
-                                        "Ref": "BaseAMI"
-                                },
-                                "InstanceType" : "t2.medium",
-                                "KeyName" : {
-                                        "Ref": "IntKeyPair"
-                                },
-                                "SecurityGroups" : [{
-                                        "Ref": "SGAdminStackLC"
-                                }],
-                                "UserData": {
-                                        "Fn::Base64": {
-                                                "Fn::Join": ["\n",
-                                                        [
-                                                                "#!/bin/bash",
-                                                                "export HOME=/root",
-                                                                "apt-get update",
-                                                                "apt-get upgrade -y",
-                                                                "apt-get install -y ansible",
-                                                                "apt-get install -y git",
-                                                                "cd /root"
-                                                        ]
-                                                ]
-                                        }
-                                }
-                        },
-                        "DependsOn" : [
-                                "EFMAZ1AdminStack",
-                                "EFMAZ2AdminStack",
-                                "EFMAZ3AdminStack"
-                        ]
-                },
-                "ALBAdminStack": {
-                        "Type" : "AWS::ElasticLoadBalancingV2::LoadBalancer",
-                        "Properties" : {
-                                "Name" : {
-                                        "Fn::Join": ["-", [
-                                                        {"Ref": "AWS::StackName"},
-                                                        "alb-adminstack"
-                                                ]
-                                        ]
-                                },
-                                "Scheme" : "internet-facing",
-                                "SecurityGroups" : [{
-                                        "Ref": "SGAdminStackALB"
-                                }],
-                                "Subnets" : [
-                                        {"Ref": "VPCSubnetAZ1AdminPublic"},
-                                        {"Ref": "VPCSubnetAZ2AdminPublic"},
-                                        {"Ref": "VPCSubnetAZ3AdminPublic"}
-                                ],
-                                "Tags" : [{
-                                        "Key": "Name",
-                                        "Value": {
-                                                "Fn::Join": ["-", [
-                                                                {"Ref": "AWS::StackName"},
-                                                                "alb-adminstack"
-                                                        ]
-                                                ]
-                                        }
-                                }],
-                                "Type" : "application",
-                                "IpAddressType" : "ipv4"
-                        },
-                        "DependsOn": [
-                                "SGAdminStackALB",
-                                "VPCIGWPublicAttach"
-                        ]
-                },
-                "TGAdminStack": {
-                        "Type" : "AWS::ElasticLoadBalancingV2::TargetGroup",
-                        "Properties" : {
-                                "HealthCheckIntervalSeconds" : "5",
-                                "HealthCheckPath" : "/",
-                                "HealthCheckPort" : "8080",
-                                "HealthCheckProtocol" : "HTTP",
-                                "HealthCheckTimeoutSeconds" : "3",
-                                "HealthyThresholdCount" : "2",
-                                "Matcher" : {
-                                        "HttpCode": "403"
-                                },
-                                "Name" : {
-                                        "Fn::Join": ["-", [
-                                                        {"Ref": "AWS::StackName"},
-                                                        "tg-adminstack"
-                                                ]
-                                        ]
-                                },
-                                "Port" : "8080",
-                                "Protocol" : "HTTP",
-                                "Tags" : [{
-                                        "Key": "Name",
-                                        "Value": {
-                                                "Fn::Join": ["-", [
-                                                                {"Ref": "AWS::StackName"},
-                                                                "tg-adminstack"
-                                                        ]
-                                                ]
-                                        }
-                                }],
-                                "UnhealthyThresholdCount" : "2",
-                                "VpcId" : {
-                                        "Ref": "VPC"
-                                }
-                        }
-                },
-                "ListenerAdminStack": {
-                        "Type" : "AWS::ElasticLoadBalancingV2::Listener",
-                        "Properties" : {
-                                "DefaultActions" : [{
-                                        "TargetGroupArn": {
-                                                "Ref": "TGAdminStack"
-                                        },
-                                        "Type": "forward"
-                                }],
-                                "LoadBalancerArn" : {
-                                        "Ref": "ALBAdminStack"
-                                },
-                                "Port" : "80",
-                                "Protocol" : "HTTP"
-                        },
-                        "DependsOn": [
-                                "TGAdminStack",
-                                "ALBAdminStack"
-                        ]
-                },
-                "ASGAdminStack": {
-                        "Type" : "AWS::AutoScaling::AutoScalingGroup",
-                        "Properties" : {
-                                "Tags" : [{
-                                        "Key": "Name",
-                                        "Value": {
-                                                "Fn::Join": ["-", [
-                                                                {"Ref": "AWS::StackName"},
-                                                                "asg-adminstack"
-                                                        ]
-                                                ]
-                                        },
-                                        "PropagateAtLaunch": "true"
-                                }],
-                                "Cooldown" : "300",
-                                "HealthCheckGracePeriod" : "300",
-                                "HealthCheckType" : "EC2",
-                                "LaunchConfigurationName" : {
-                                        "Ref": "LCAdminStack"
-                                },
-                                "MinSize" : "1",
-                                "MaxSize" : "1",
-                                "TargetGroupARNs": [{
-                                        "Ref": "TGAdminStack"
-                                }],
-                                "VPCZoneIdentifier" : [
-                                        {"Ref": "VPCSubnetAZ1AdminPrivate"},
-                                        {"Ref": "VPCSubnetAZ2AdminPrivate"},
-                                        {"Ref": "VPCSubnetAZ3AdminPrivate"}
-                                ]
-                        },
-                        "DependsOn" : [
-                                "LCAdminStack",
-                                "ListenerAdminStack",
-                                "VPCNATAZ1Private"
-                        ]
-                },
-                "CWWebStackASCPU": {
-                        "Type" : "AWS::CloudWatch::Alarm",
-                        "Properties" : {
-                                "ActionsEnabled" : "true",
-                                "AlarmActions" : [{
-                                        "Ref": "SNSTopicInfraAlert"
-                                }],
-                                "AlarmDescription" : "Notify when CPU has breached 50% over for more than 5 minutes",
-                                "AlarmName" : {
-                                        "Fn::Join": ["-", [
-                                                        {"Ref": "AWS::StackName"},
-                                                        "asg-adminstack"
-                                                ]
-                                        ]
-                                },
-                                "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
-                                "EvaluationPeriods" : "1",
-                                "MetricName" : "CPUUtilization",
-                                "Namespace" : "AWS/EC2",
-                                "Period" : "300",
-                                "Statistic" : "Average",
-                                "Threshold" : "50",
-                                "Dimensions" : [{
-                                        "Name": "AutoScalingGroupName",
-                                        "Value": {
-                                                "Ref":"ASGAdminStack"
-                                        }
-                                }]
-                        },
-                        "DependsOn":[
-                                "ASGAdminStack",
-                                "SNSTopicInfraAlert"
-                        ]
-                },
-                "S3Utilities": {
-                        "Type" : "AWS::S3::Bucket",
-                        "Properties" : {
-                                "BucketName" : {
-                                        "Fn::Join": ["-", [
-                                                        {"Ref": "AWS::StackName"},
-                                                        "s3-utilities"
-                                                ]
-                                        ]
-                                },
-                                "Tags" : [{
-                                        "Key": "Name",
-                                        "Value": {
-                                                "Fn::Join": ["-", [
-                                                                {"Ref": "AWS::StackName"},
-                                                                "s3-utilities"
-                                                        ]
-                                                ]
-                                        }
-                                },
-                                {
-                                        "Key": "Description",
-                                        "Value": "Contains code and artifacts to be used by various resources. Typically code is unencrypted and artifacts are encrypted due to potential sensitive information"
-                                }]
-                        }
-                },
-                "S3UtilitiesPolicy": {
-                        "Type" : "AWS::S3::BucketPolicy",
-                        "Properties" : {
-                                "Bucket": {
-                                        "Fn::Join": ["-", [
-                                                        {"Ref": "AWS::StackName"},
-                                                        "s3-utilities"
-                                                ]
-                                        ]
-                                },
-                                "PolicyDocument": {
-                                        "Id": "S3UtilitiesPolicy",
-                                        "Version": "2012-10-17",
-                                        "Statement": [
-                                                {
-                                                        "Sid": "UtilityReadAccess",
-                                                        "Action": [
-                                                                "s3:ListBucket",
-                                                                "s3:GetObject",
-                                                                "s3:GetObjectTagging",
-                                                                "s3:GetObjectVersion"
-                                                        ],
-                                                        "Effect": "Allow",
-                                                        "Resource": [
-                                                                {
-                                                                        "Fn::Join": ["", [
-                                                                                "arn:aws:s3:::",{
-                                                                                        "Fn::Join": ["-", [
-                                                                                                        {"Ref": "AWS::StackName"},
-                                                                                                        "s3-utilities"
-                                                                                                ]
-                                                                                        ]
-                                                                                }]
-                                                                        ]
-                                                                },
-                                                                {
-                                                                        "Fn::Join": ["", [
-                                                                                "arn:aws:s3:::",{
-                                                                                        "Fn::Join": ["-", [
-                                                                                                        {"Ref": "AWS::StackName"},
-                                                                                                        "s3-utilities"
-                                                                                                ]
-                                                                                        ]
-                                                                                },
-                                                                                "/bootstrap/*"]
-                                                                        ]
-                                                                },
-                                                                {
-                                                                        "Fn::Join": ["", [
-                                                                                "arn:aws:s3:::",{
-                                                                                        "Fn::Join": ["-", [
-                                                                                                        {"Ref": "AWS::StackName"},
-                                                                                                        "s3-utilities"
-                                                                                                ]
-                                                                                        ]
-                                                                                },
-                                                                                "/resources/*"]
-                                                                        ]
-                                                                }
-                                                        ],
-                                                        "Principal": {
-                                                                "AWS": [
-                                                                        "arn:aws:iam::601374407704:role/hacms-iam-role-utilities-ec2"
-                                                                ]
-                                                        }
-                                                },
-                                                {
-                                                        "Sid": "UtilityWriteAccess",
-                                                        "Action": [
-                                                                "s3:PutObject"
-                                                        ],
-                                                        "Effect": "Allow",
-                                                        "Resource": [
-                                                                {
-                                                                        "Fn::Join": ["", [
-                                                                                "arn:aws:s3:::",{
-                                                                                        "Fn::Join": ["-", [
-                                                                                                        {"Ref": "AWS::StackName"},
-                                                                                                        "s3-utilities"
-                                                                                                ]
-                                                                                        ]
-                                                                                },
-                                                                                "/resources/*"]
-                                                                        ]
-                                                                }
-                                                        ],
-                                                        "Principal": {
-                                                                "AWS": [
-                                                                        "arn:aws:iam::601374407704:role/hacms-iam-role-utilities-ec2"
-                                                                ]
-                                                        }
-                                                }
-                                        ]
-                                }
-                        },
-                        "DependsOn": [
-                                "S3Utilities"
-                        ]
-                }
-        },
+		"SGAdminStackALB" : {
+			"Type" : "AWS::EC2::SecurityGroup",
+			"Properties" : {
+				"GroupDescription" : "Standard Security group for AdminStack Application Load Balancer. Permit 443 and 80 from 0.0.0.0, Permit ICMP from 10.0.0.0",
+				"VpcId" : {
+					"Ref": "VPC"
+				},
+				"SecurityGroupIngress" : [
+					{
+						"IpProtocol" : "icmp",
+						"FromPort" : "-1",
+						"ToPort" : "-1",
+						"CidrIp" : "10.0.0.0/16"
+					},
+					{
+						"IpProtocol" : "tcp",
+						"FromPort" : "443",
+						"ToPort" : "443",
+						"CidrIp" : {
+							"Ref": "BaseAdminExtIP"
+						}
+					},
+					{
+						"IpProtocol" : "tcp",
+						"FromPort" : "80",
+						"ToPort" : "80",
+						"CidrIp" : {
+							"Ref": "BaseAdminExtIP"
+						}
+					}
+				],
+				"Tags": [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Join": ["-", [
+								{"Ref": "AWS::StackName"},
+								"sg-adminstack-alb"
+							]
+						]
+					}
+				}]
+			}
+		},
+		"SGAdminStackLC" : {
+			"Type" : "AWS::EC2::SecurityGroup",
+			"Properties" : {
+				"GroupDescription" : "Standard Security group for AdminStack Launch Config. Permit SSH from Utility Security Group and Own Security Group, Permit 80 from Application ELB, Permit ICMP from 10.0.0.0",
+				"VpcId" : {
+					"Ref": "VPC"
+				},
+				"SecurityGroupIngress" : [
+					{
+						"IpProtocol" : "icmp",
+						"FromPort" : "-1",
+						"ToPort" : "-1",
+						"CidrIp" : "10.0.0.0/16"
+					},
+					{
+						"IpProtocol" : "tcp",
+						"FromPort" : "22",
+						"ToPort" : "22",
+						"SourceSecurityGroupId" : {
+							"Ref": "SGUtility"
+						}
+					},
+					{
+						"IpProtocol" : "tcp",
+						"FromPort" : "8080",
+						"ToPort" : "8080",
+						"SourceSecurityGroupId" : {
+							"Ref": "SGAdminStackALB"
+						}
+					}
+				],
+				"Tags": [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Join": ["-", [
+								{"Ref": "AWS::StackName"},
+								"sg-adminstack-lc"
+							]
+						]
+					}
+				}]
+			},
+			"DependsOn": [
+				"SGUtility"
+			]
+		},
+		"SGAdminStackEFS": {
+			"Type" : "AWS::EC2::SecurityGroup",
+			"Properties" : {
+				"GroupDescription" : "Standard Security group for EFS. Permit 2049 from LC security group, Permit ICMP from 10.0.0.0",
+				"VpcId" : {
+					"Ref": "VPC"
+				},
+				"SecurityGroupIngress" : [
+					{
+						"IpProtocol" : "icmp",
+						"FromPort" : "-1",
+						"ToPort" : "-1",
+						"CidrIp" : "10.0.0.0/16"
+					},
+					{
+						"IpProtocol" : "tcp",
+						"FromPort" : "2049",
+						"ToPort" : "2049",
+						"SourceSecurityGroupId" : {
+							"Ref": "SGAdminStackLC"
+						}
+					}
+				],
+				"Tags": [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Join": ["-", [
+								{"Ref": "AWS::StackName"},
+								"sg-adminstack-efs"
+							]
+						]
+					}
+				}]
+			},
+			"DependsOn": [
+				"SGAdminStackLC"
+			]
+		},
+		"EFSAdminStack": {
+			"Type" : "AWS::EFS::FileSystem",
+			"Properties" : {
+				"Encrypted" : "true",
+				"FileSystemTags" : [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Join": ["-", [
+								{"Ref": "AWS::StackName"},
+								"efs-adminstack"
+							]
+						]
+					}
+				}],
+				"PerformanceMode" : "generalPurpose"
+			}
+		},
+		"EFMAZ1AdminStack" : {
+			"Type" : "AWS::EFS::MountTarget",
+			"Properties" : {
+				"FileSystemId" : {
+					"Ref": "EFSAdminStack"
+				},
+				"SecurityGroups" : [{
+					"Ref": "SGAdminStackEFS"
+				}],
+				"SubnetId" : {
+					"Ref": "VPCSubnetAZ1AdminPrivate"
+				}
+			},
+			"DependsOn": [
+				"EFSAdminStack",
+				"VPCSubnetAZ1AdminPrivate"
+			]
+		},
+		"EFMAZ2AdminStack" : {
+			"Type" : "AWS::EFS::MountTarget",
+			"Properties" : {
+				"FileSystemId" : {
+					"Ref": "EFSAdminStack"
+				},
+				"SecurityGroups" : [{
+					"Ref": "SGAdminStackEFS"
+				}],
+				"SubnetId" : {
+					"Ref": "VPCSubnetAZ2AdminPrivate"
+				}
+			},
+			"DependsOn": [
+				"EFSAdminStack",
+				"VPCSubnetAZ2AdminPrivate"
+			]
+		},
+		"EFMAZ3AdminStack" : {
+			"Type" : "AWS::EFS::MountTarget",
+			"Properties" : {
+				"FileSystemId" : {
+					"Ref": "EFSAdminStack"
+				},
+				"SecurityGroups" : [{
+					"Ref": "SGAdminStackEFS"
+				}],
+				"SubnetId" : {
+					"Ref": "VPCSubnetAZ3AdminPrivate"
+				}
+			},
+			"DependsOn": [
+				"EFSAdminStack",
+				"VPCSubnetAZ3AdminPrivate"
+			]
+		},
+		"LCAdminStack": {
+			"Type" : "AWS::AutoScaling::LaunchConfiguration",
+			"Properties" : {
+				"BlockDeviceMappings" : [{
+					"DeviceName": "xvda",
+					"Ebs": {
+						"VolumeType": "gp2",
+						"VolumeSize": "20"
+					}
+				}],
+				"IamInstanceProfile" : {
+					"Ref": "AdminEC2Role"
+				},
+				"ImageId" : {
+					"Ref": "BaseAMI"
+				},
+				"InstanceType" : "t2.medium",
+				"KeyName" : {
+					"Ref": "IntKeyPair"
+				},
+				"SecurityGroups" : [{
+					"Ref": "SGAdminStackLC"
+				}],
+				"UserData": {
+					"Fn::Base64": {
+						"Fn::Join": ["\n",
+							[
+								"#!/bin/bash",
+								"export HOME=/root",
+								"apt-get update",
+								"apt-get upgrade -y",
+								"apt-get install -y ansible",
+								"apt-get install -y git",
+								"cd /root"
+							]
+						]
+					}
+				}
+			},
+			"DependsOn" : [
+				"EFMAZ1AdminStack",
+				"EFMAZ2AdminStack",
+				"EFMAZ3AdminStack"
+			]
+		},
+		"ALBAdminStack": {
+			"Type" : "AWS::ElasticLoadBalancingV2::LoadBalancer",
+			"Properties" : {
+				"Name" : {
+					"Fn::Join": ["-", [
+							{"Ref": "AWS::StackName"},
+							"alb-adminstack"
+						]
+					]
+				},
+				"Scheme" : "internet-facing",
+				"SecurityGroups" : [{
+					"Ref": "SGAdminStackALB"
+				}],
+				"Subnets" : [
+					{"Ref": "VPCSubnetAZ1AdminPublic"},
+					{"Ref": "VPCSubnetAZ2AdminPublic"},
+					{"Ref": "VPCSubnetAZ3AdminPublic"}
+				],
+				"Tags" : [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Join": ["-", [
+								{"Ref": "AWS::StackName"},
+								"alb-adminstack"
+							]
+						]
+					}
+				}],
+				"Type" : "application",
+				"IpAddressType" : "ipv4"
+			},
+			"DependsOn": [
+				"SGAdminStackALB",
+				"VPCIGWPublicAttach"
+			]
+		},
+		"TGAdminStack": {
+			"Type" : "AWS::ElasticLoadBalancingV2::TargetGroup",
+			"Properties" : {
+				"HealthCheckIntervalSeconds" : "5",
+				"HealthCheckPath" : "/",
+				"HealthCheckPort" : "8080",
+				"HealthCheckProtocol" : "HTTP",
+				"HealthCheckTimeoutSeconds" : "3",
+				"HealthyThresholdCount" : "2",
+				"Matcher" : {
+					"HttpCode": "403"
+				},
+				"Name" : {
+					"Fn::Join": ["-", [
+							{"Ref": "AWS::StackName"},
+							"tg-adminstack"
+						]
+					]
+				},
+				"Port" : "8080",
+				"Protocol" : "HTTP",
+				"Tags" : [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Join": ["-", [
+								{"Ref": "AWS::StackName"},
+								"tg-adminstack"
+							]
+						]
+					}
+				}],
+				"UnhealthyThresholdCount" : "2",
+				"VpcId" : {
+					"Ref": "VPC"
+				}
+			}
+		},
+		"ListenerAdminStack": {
+			"Type" : "AWS::ElasticLoadBalancingV2::Listener",
+			"Properties" : {
+				"DefaultActions" : [{
+					"TargetGroupArn": {
+						"Ref": "TGAdminStack"
+					},
+					"Type": "forward"
+				}],
+				"LoadBalancerArn" : {
+					"Ref": "ALBAdminStack"
+				},
+				"Port" : "443",
+				"Protocol" : "HTTPS",
+				"Certificates": [{
+					"CertificateArn": {
+						"Ref": "CertificateArn"
+					}
+				}]
+			},
+			"DependsOn": [
+				"TGAdminStack",
+				"ALBAdminStack"
+			]
+		},
+		"ASGAdminStack": {
+			"Type" : "AWS::AutoScaling::AutoScalingGroup",
+			"Properties" : {
+				"Tags" : [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Join": ["-", [
+								{"Ref": "AWS::StackName"},
+								"asg-adminstack"
+							]
+						]
+					},
+					"PropagateAtLaunch": "true"
+				}],
+				"Cooldown" : "300",
+				"HealthCheckGracePeriod" : "300",
+				"HealthCheckType" : "EC2",
+				"LaunchConfigurationName" : {
+					"Ref": "LCAdminStack"
+				},
+				"MinSize" : "1",
+				"MaxSize" : "1",
+				"TargetGroupARNs": [{
+					"Ref": "TGAdminStack"
+				}],
+				"VPCZoneIdentifier" : [
+					{"Ref": "VPCSubnetAZ1AdminPrivate"},
+					{"Ref": "VPCSubnetAZ2AdminPrivate"},
+					{"Ref": "VPCSubnetAZ3AdminPrivate"}
+				]
+			},
+			"DependsOn" : [
+				"LCAdminStack",
+				"ListenerAdminStack",
+				"VPCNATAZ1Private"
+			]
+		},
+		"CWWebStackASCPU": {
+			"Type" : "AWS::CloudWatch::Alarm",
+			"Properties" : {
+				"ActionsEnabled" : "true",
+				"AlarmActions" : [{
+					"Ref": "SNSTopicInfraAlert"
+				}],
+				"AlarmDescription" : "Notify when CPU has breached 50% over for more than 5 minutes",
+				"AlarmName" : {
+					"Fn::Join": ["-", [
+							{"Ref": "AWS::StackName"},
+							"asg-adminstack"
+						]
+					]
+				},
+				"ComparisonOperator" : "GreaterThanOrEqualToThreshold",
+				"EvaluationPeriods" : "1",
+				"MetricName" : "CPUUtilization",
+				"Namespace" : "AWS/EC2",
+				"Period" : "300",
+				"Statistic" : "Average",
+				"Threshold" : "50",
+				"Dimensions" : [{
+					"Name": "AutoScalingGroupName",
+					"Value": {
+						"Ref":"ASGAdminStack"
+					}
+				}]
+			},
+			"DependsOn":[
+				"ASGAdminStack",
+				"SNSTopicInfraAlert"
+			]
+		},
+		"S3Utilities": {
+			"Type" : "AWS::S3::Bucket",
+			"Properties" : {
+				"BucketName" : {
+					"Fn::Join": ["-", [
+							{"Ref": "AWS::StackName"},
+							"s3-utilities"
+						]
+					]
+				},
+				"Tags" : [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Join": ["-", [
+								{"Ref": "AWS::StackName"},
+								"s3-utilities"
+							]
+						]
+					}
+				},
+				{
+					"Key": "Description",
+					"Value": "Contains code and artifacts to be used by various resources. Typically code is unencrypted and artifacts are encrypted due to potential sensitive information"
+				}]
+			}
+		},
+		"S3UtilitiesPolicy": {
+			"Type" : "AWS::S3::BucketPolicy",
+			"Properties" : {
+				"Bucket": {
+					"Fn::Join": ["-", [
+							{"Ref": "AWS::StackName"},
+							"s3-utilities"
+						]
+					]
+				},
+				"PolicyDocument": {
+					"Id": "S3UtilitiesPolicy",
+					"Version": "2012-10-17",
+					"Statement": [
+						{
+							"Sid": "UtilityReadAccess",
+							"Action": [
+								"s3:ListBucket",
+								"s3:GetObject",
+								"s3:GetObjectTagging",
+								"s3:GetObjectVersion"
+							],
+							"Effect": "Allow",
+							"Resource": [
+								{
+									"Fn::Join": ["", [
+										"arn:aws:s3:::",{
+											"Fn::Join": ["-", [
+													{"Ref": "AWS::StackName"},
+													"s3-utilities"
+												]
+											]
+										}]
+									]
+								},
+								{
+									"Fn::Join": ["", [
+										"arn:aws:s3:::",{
+											"Fn::Join": ["-", [
+													{"Ref": "AWS::StackName"},
+													"s3-utilities"
+												]
+											]
+										},
+										"/bootstrap/*"]
+									]
+								},
+								{
+									"Fn::Join": ["", [
+										"arn:aws:s3:::",{
+											"Fn::Join": ["-", [
+													{"Ref": "AWS::StackName"},
+													"s3-utilities"
+												]
+											]
+										},
+										"/resources/*"]
+									]
+								}
+							],
+							"Principal": {
+								"AWS": [{
+									"Ref": "UtilitiesEC2RolePrincipal"
+								}]
+							}
+						},
+						{
+							"Sid": "UtilityWriteAccess",
+							"Action": [
+								"s3:PutObject"
+							],
+							"Effect": "Allow",
+							"Resource": [
+								{
+									"Fn::Join": ["", [
+										"arn:aws:s3:::",{
+											"Fn::Join": ["-", [
+													{"Ref": "AWS::StackName"},
+													"s3-utilities"
+												]
+											]
+										},
+										"/resources/*"]
+									]
+								}
+							],
+							"Principal": {
+								"AWS": [{
+									"Ref": "UtilitiesEC2RolePrincipal"
+								}]
+							}
+						}
+					]
+				}
+			},
+			"DependsOn": [
+				"S3Utilities"
+			]
+		}
+	},
 
-        "Outputs": {
-                "VPC": {
-                        "Description": "VPC",
-                        "Value": {
-                                "Ref": "VPC"
-                        },
-                        "Export": {
-                                "Name": {
-                                        "Fn::Join": ["-", [
-                                                        {"Ref": "AWS::StackName"},
-                                                        "vpc"
-                                                ]
-                                        ]
-                                }
-                        }
-                },
-                "VPCSubnetAZ1AdminPublic": {
-                        "Description": "Public Admin Subnet in AZ 1",
-                        "Value": {
-                                "Ref": "VPCSubnetAZ1AdminPublic"
-                        },
-                        "Export": {
-                                "Name": {
-                                        "Fn::Join": ["-", [
-                                                        {"Ref": "AWS::StackName"},
-                                                        "vpc-subnet-az1-admin-public"
-                                                ]
-                                        ]
-                                }
-                        }
-                },
-                "VPCSubnetAZ2AdminPublic": {
-                        "Description": "Public Admin Subnet in AZ 2",
-                        "Value": {
-                                "Ref": "VPCSubnetAZ2AdminPublic"
-                        },
-                        "Export": {
-                                "Name": {
-                                        "Fn::Join": ["-", [
-                                                        {"Ref": "AWS::StackName"},
-                                                        "vpc-subnet-az2-admin-public"
-                                                ]
-                                        ]
-                                }
-                        }
-                },
-                "VPCSubnetAZ3Admin": {
-                        "Description": "Public Admin Subnet in AZ 3",
-                        "Value": {
-                                "Ref": "VPCSubnetAZ3AdminPublic"
-                        },
-                        "Export": {
-                                "Name": {
-                                        "Fn::Join": ["-", [
-                                                        {"Ref": "AWS::StackName"},
-                                                        "vpc-subnet-az3-admin-public"
-                                                ]
-                                        ]
-                                }
-                        }
-                },
-                "VPCSubnetAZ1AdminPrivate": {
-                        "Description": "Private Admin Subnet in AZ 1",
-                        "Value": {
-                                "Ref": "VPCSubnetAZ1AdminPrivate"
-                        },
-                        "Export": {
-                                "Name": {
-                                        "Fn::Join": ["-", [
-                                                        {"Ref": "AWS::StackName"},
-                                                        "vpc-subnet-az1-admin-private"
-                                                ]
-                                        ]
-                                }
-                        }
-                },
-                "VPCSubnetAZ2AdminPrivate": {
-                        "Description": "Private Admin Subnet in AZ 2",
-                        "Value": {
-                                "Ref": "VPCSubnetAZ2AdminPrivate"
-                        },
-                        "Export": {
-                                "Name": {
-                                        "Fn::Join": ["-", [
-                                                        {"Ref": "AWS::StackName"},
-                                                        "vpc-subnet-az2-admin-private"
-                                                ]
-                                        ]
-                                }
-                        }
-                },
-                "VPCSubnetAZ3Admin": {
-                        "Description": "Private Admin Subnet in AZ 3",
-                        "Value": {
-                                "Ref": "VPCSubnetAZ3AdminPrivate"
-                        },
-                        "Export": {
-                                "Name": {
-                                        "Fn::Join": ["-", [
-                                                        {"Ref": "AWS::StackName"},
-                                                        "vpc-subnet-az3-admin-private"
-                                                ]
-                                        ]
-                                }
-                        }
-                }
-        }
+	"Outputs": {
+		"VPC": {
+			"Description": "VPC",
+			"Value": {
+				"Ref": "VPC"
+			},
+			"Export": {
+				"Name": {
+					"Fn::Join": ["-", [
+							{"Ref": "AWS::StackName"},
+							"vpc"
+						]
+					]
+				}
+			}
+		},
+		"VPCSubnetAZ1AdminPublic": {
+			"Description": "Public Admin Subnet in AZ 1",
+			"Value": {
+				"Ref": "VPCSubnetAZ1AdminPublic"
+			},
+			"Export": {
+				"Name": {
+					"Fn::Join": ["-", [
+							{"Ref": "AWS::StackName"},
+							"vpc-subnet-az1-admin-public"
+						]
+					]
+				}
+			}
+		},
+		"VPCSubnetAZ2AdminPublic": {
+			"Description": "Public Admin Subnet in AZ 2",
+			"Value": {
+				"Ref": "VPCSubnetAZ2AdminPublic"
+			},
+			"Export": {
+				"Name": {
+					"Fn::Join": ["-", [
+							{"Ref": "AWS::StackName"},
+							"vpc-subnet-az2-admin-public"
+						]
+					]
+				}
+			}
+		},
+		"VPCSubnetAZ3Admin": {
+			"Description": "Public Admin Subnet in AZ 3",
+			"Value": {
+				"Ref": "VPCSubnetAZ3AdminPublic"
+			},
+			"Export": {
+				"Name": {
+					"Fn::Join": ["-", [
+							{"Ref": "AWS::StackName"},
+							"vpc-subnet-az3-admin-public"
+						]
+					]
+				}
+			}
+		},
+		"VPCSubnetAZ1AdminPrivate": {
+			"Description": "Private Admin Subnet in AZ 1",
+			"Value": {
+				"Ref": "VPCSubnetAZ1AdminPrivate"
+			},
+			"Export": {
+				"Name": {
+					"Fn::Join": ["-", [
+							{"Ref": "AWS::StackName"},
+							"vpc-subnet-az1-admin-private"
+						]
+					]
+				}
+			}
+		},
+		"VPCSubnetAZ2AdminPrivate": {
+			"Description": "Private Admin Subnet in AZ 2",
+			"Value": {
+				"Ref": "VPCSubnetAZ2AdminPrivate"
+			},
+			"Export": {
+				"Name": {
+					"Fn::Join": ["-", [
+							{"Ref": "AWS::StackName"},
+							"vpc-subnet-az2-admin-private"
+						]
+					]
+				}
+			}
+		},
+		"VPCSubnetAZ3Admin": {
+			"Description": "Private Admin Subnet in AZ 3",
+			"Value": {
+				"Ref": "VPCSubnetAZ3AdminPrivate"
+			},
+			"Export": {
+				"Name": {
+					"Fn::Join": ["-", [
+							{"Ref": "AWS::StackName"},
+							"vpc-subnet-az3-admin-private"
+						]
+					]
+				}
+			}
+		}
+	}
 }

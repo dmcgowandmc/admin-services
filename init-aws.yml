@@ -1,4 +1,3 @@
-#NEED TO FILTER ROLE RESULTS AND GET ROLE IAM
 #This script will init the aws components we couldn't setup using cloud formation templates. It will then apply an updated cloud formation tempalte utilizating these components and other stack components we could use before. Once completed it will clean up anything
 #temporary we created and re-init jenkins
 #All of tese tasks will be run locally
@@ -7,6 +6,8 @@
   vars:
     region: ap-southeast-2
   tasks:
+
+#Policies and Roles. Collect necessary facts
   - name: "Create Policy CloudFormationAdditionalAccess" #Policy Creation not supported on this version of ansible. Using aws cli to create policy. And have to use ignore errors flag to so not to trip up if already exists
     command: aws iam create-policy --policy-name CloudFormationAdditionalAccess --policy-document file://module_utils/CloudFormationAdditionalAccess.json
     register: cloudformationadditionalaccess
@@ -77,43 +78,61 @@
     ignore_errors: true
   - name: "Get {{ stackname }}-iam-role-admin-ec2 role fact"
     command: "aws iam get-role --role-name {{ stackname }}-iam-role-admin-ec2"
-    register: admin-ec2-fact
+    register: adminec2fact
+  - set_fact:
+      AdminEC2FactJson: "{{ adminec2fact.stdout | from_json }}"
   - name: "Get {{ stackname }}-iam-role-utilities-ec2 role fact"
     command: "aws iam get-role --role-name {{ stackname }}-iam-role-utilities-ec2"
-    register: utilities-ec2-fact
+    register: utilitiesec2fact
+  - set_fact:
+      UtilitiesEC2FactJson: "{{ utilitiesec2fact.stdout | from_json }}"
   - name: "Get {{ stackname }}-iam-role-utilities-db role fact"
     command: "aws iam get-role --role-name {{ stackname }}-iam-role-utilities-db"
-    register: utilities-db-fact
-  - debug:
-      msg: "Value is {{ admin-ec2-fact }}"
+    register: utilitiesdbfact
+  - set_fact:
+      UtilitiesDBFactJson: "{{ utilitiesdbfact.stdout | from_json }}"
 
-#  - name: "Create a New Internal SSH Keypair"
-#    ec2_key:
-#      name: "{{ stackname }}-ec2-ssh-private"
-#      region: "{{ region }}"
-#    register: ssh_private
-#  - name: "Save Private Key Locally"
-#    copy:
-#      content: "{{ ssh_private.key.private_key }}"
-#      dest: "{{ playbook_dir }}/{{ stackname }}-ec2-ssh-private.pem"
-#  - name: "Apply Final AWS Template"
-#    cloudformation:
-#      stack_name: "{{ stackname }}"
-#      state: "present"
-#      region: "{{ region }}"
-#      template: "{{ playbook_dir }}/module_utils/admin-stack-final.json"
-#      template_parameters:
-#        BaseUtilityIP: "0.0.0.0/0"
-#        BaseAdminExtIP: "0.0.0.0/0"
-#        BaseAMI: "ami-0c34246f"
-#        AdminEC2Role: "{{ stackname }}-iam-role-admin-ec2"
-#        UtilitiesEC2Role: "{{ stackname }}-iam-role-utilities-ec2"
-#        ExtKeyPair: "mywordpresssite-external"
-#        IntKeyPair: "{{ stackname }}-ec2-ssh-private"
-#        InfraAlertEmail: "{{ email }}"
-#        AdminUsername: "{{ username }}"
-#        AdminPassword: "{{ password }}"
-#        StandardUsername: "{{ username }}"
-#        StandardPassword: "{{ password }}"
-#      tags:
-#        Stack: "{{ stackname }}"
+#Set up Other components and update admin stack
+  - name: "Create a New Internal SSH Keypair"
+    ec2_key:
+      name: "{{ stackname }}-ec2-ssh-private"
+      region: "{{ region }}"
+    register: ssh_private
+  - name: "Save Private Key Locally"
+    copy:
+      content: "{{ ssh_private.key.private_key }}"
+      dest: "{{ playbook_dir }}/{{ stackname }}-ec2-ssh-private.pem"
+    when: "{{ ssh_private.key.private_key }} is defined"
+  - name: "Generate Self Signed Certificates" #Due to older version of ansible, we are using command line to do this. Locality parameters are global. At some point, adjust scripts to actually get correct info based on actual location
+    command: "openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out certificate.pem -config module_utils/sslselfsigned.conf -subj \"/C=UN/ST=UNI/L=Global/O={{ stackname }}/OU={{ stackname }}/CN={{ elbfqdn }}/emailAddress={{ email }}\""
+  - name: "Upload Self Signed Certificates"
+    command: "aws acm import-certificate --region {{ region }} --private-key file://key.pem --certificate file://certificate.pem"
+    register: certificate
+  - set_fact:
+      CertificateJson: "{{ certificate.stdout | from_json }}"
+  - debug:
+      msg: "Value is {{ CertificateJson.CertificateArn }}"
+  - name: "Apply Final AWS Template"
+    cloudformation:
+      stack_name: "{{ stackname }}"
+      state: "present"
+      region: "{{ region }}"
+      template: "{{ playbook_dir }}/module_utils/admin-stack-final.json"
+      template_parameters:
+        BaseUtilityIP: "0.0.0.0/0"
+        BaseAdminExtIP: "0.0.0.0/0"
+        BaseAMI: "ami-0c34246f"
+        AdminEC2Role: "{{ stackname }}-iam-role-admin-ec2"
+        UtilitiesEC2Role: "{{ stackname }}-iam-role-utilities-ec2"
+        AdminEC2RolePrincipal: "{{ AdminEC2FactJson.Role.Arn }}"
+        UtilitiesEC2RolePrincipal: "{{ UtilitiesEC2FactJson.Role.Arn }}"
+        ExtKeyPair: "mywordpresssite-external"
+        IntKeyPair: "{{ stackname }}-ec2-ssh-private"
+        CertificateArn: "{{ CertificateJson.CertificateArn }}"
+        InfraAlertEmail: "{{ email }}"
+        AdminUsername: "{{ username }}"
+        AdminPassword: "{{ password }}"
+        StandardUsername: "{{ username }}"
+        StandardPassword: "{{ password }}"
+      tags:
+        Stack: "{{ stackname }}"

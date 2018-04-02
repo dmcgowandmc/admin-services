@@ -97,5 +97,4 @@
       email: "{{ email }}"
 - include: init-aws.yml #This script will complete the setup of AWS components we couldn't complete in the init cloud formation template
 
-
-#ansible-playbook -i inventory/adminstack init-adminstack.yml --extra-vars "efsfqdn=<efs> username=<username> password=<password> email=<email> stackname=<stackname>" -vvvv
+ansible-playbook -i inventory/adminstack init-aws.yml --extra-vars "efsfqdn=<efsfqdn> username=<rootuname> password=<rootpw> email=<rootemail> stackname=<stackname> elbfqdn=<elbfqdn>" -vvvv

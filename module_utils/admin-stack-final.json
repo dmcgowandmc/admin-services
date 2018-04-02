@@ -868,7 +868,47 @@
 								"apt-get upgrade -y",
 								"apt-get install -y ansible",
 								"apt-get install -y git",
-								"cd /root"
+								"cd /root",
+								"git clone https://github.com/dmcgowandmc/admin-services.git",
+								"cd admin-services",
+								{"Fn::Join": [" ", [
+									"ansible-playbook -i inventory/adminstack init-aws.yml --extra-vars \"",
+									{"Fn::Join": ["=", [
+										"efsfqdn", {
+											"Ref": "EFSAdminStack"
+										}
+									]]},
+									{"Fn::Join": ["=", [
+										"username", {
+											"Ref": "AdminUsername"
+										}
+									]]},
+									{"Fn::Join": ["=", [
+										"password", {
+											"Ref": "AdminPassword"
+										}
+									]]},
+									{"Fn::Join": ["=", [
+										"email", {
+											"Ref": "InfraAlertEmail"
+										}
+									]]},
+									{"Fn::Join": ["=", [
+										"stackname", {
+											"Ref": "AWS::StackName"
+										}
+									]]},
+									{"Fn::Join": ["=", [
+										"elbfqdn", {
+											"Fn::GetAtt": [
+												"ALBAdminStack",
+												"DNSName"
+											]
+										}
+									]]},
+									"\" -vvvv > runlog.log"
+
+								]]}
 							]
 						]
 					}

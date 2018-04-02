@@ -125,7 +125,7 @@
 					}
 				}]
 			}
-			},
+		},
 		"VPCSubnetAZ2AdminPublic": {
 			"Type": "AWS::EC2::Subnet",
 			"Properties": {
@@ -872,7 +872,7 @@
 								"git clone https://github.com/dmcgowandmc/admin-services.git",
 								"cd admin-services",
 								{"Fn::Join": [" ", [
-									"ansible-playbook -i inventory/adminstack init-aws.yml --extra-vars \"",
+									"ansible-playbook -i inventory/adminstack init-adminstack.yml --extra-vars \"",
 									{"Fn::Join": ["=", [
 										"efsfqdn", {
 											"Ref": "EFSAdminStack"

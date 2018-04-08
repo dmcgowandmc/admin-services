@@ -86,8 +86,8 @@
 		},
 		"IntPrivateKey": {
 			"Type": "String",
-                        "Description": "The newly Generated Private Key. To be saved in the utility stack",
-                        "AllowedPattern" : ".+"
+				"Description": "The newly Generated Private Key. To be saved in the utility stack",
+				"AllowedPattern" : ".+"
 		}
 	},
 
@@ -1291,7 +1291,7 @@
 				}
 			}
 		},
-		"VPCSubnetAZ3Admin": {
+		"VPCSubnetAZ3AdminPublic": {
 			"Description": "Public Admin Subnet in AZ 3",
 			"Value": {
 				"Ref": "VPCSubnetAZ3AdminPublic"
@@ -1336,7 +1336,7 @@
 				}
 			}
 		},
-		"VPCSubnetAZ3Admin": {
+		"VPCSubnetAZ3AdminPrivate": {
 			"Description": "Private Admin Subnet in AZ 3",
 			"Value": {
 				"Ref": "VPCSubnetAZ3AdminPrivate"

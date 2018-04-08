@@ -102,10 +102,17 @@
 # * Applying new roles with proper needs only permissions
 # * Creating the utilities S3 bucket with correct bucket policy
 
+  - name: "Remove old Internal SSH Keypair (if exists)" #Need better checking rather than just ignoring errors
+    ec2_key:
+      name: "{{ stackname }}-ec2-ssh-private"
+      region: "{{ region }}"
+      state: "absent"
+    ignore_errors: true
   - name: "Create a New Internal SSH Keypair"
     ec2_key:
       name: "{{ stackname }}-ec2-ssh-private"
       region: "{{ region }}"
+      state: "present"
     register: ssh_private
   - name: "Save Private Key Locally"
     copy:
@@ -143,5 +150,6 @@
         AdminPassword: "{{ password }}"
         StandardUsername: "{{ username }}"
         StandardPassword: "{{ password }}"
+        IntPrivateKey: "{{ ssh_private.key.private_key }}"
       tags:
         Stack: "{{ stackname }}"

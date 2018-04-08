@@ -7,7 +7,9 @@
     region: ap-southeast-2
   tasks:
 
-#Policies and Roles. Collect necessary facts
+
+#Creating the required policies and roles for the stack to use from now on. Collect necessary facts
+
   - name: "Create Policy CloudFormationAdditionalAccess" #Policy Creation not supported on this version of ansible. Using aws cli to create policy. And have to use ignore errors flag to so not to trip up if already exists
     command: aws iam create-policy --policy-name CloudFormationAdditionalAccess --policy-document file://module_utils/CloudFormationAdditionalAccess.json
     register: cloudformationadditionalaccess
@@ -92,7 +94,14 @@
   - set_fact:
       UtilitiesDBFactJson: "{{ utilitiesdbfact.stdout | from_json }}"
 
+
 #Set up Other components and update admin stack
+#We are making the following updates to the admin stack
+# * Generating a new internal private key and applying that to the admin stack
+# * Configuring TLS on the ELB
+# * Applying new roles with proper needs only permissions
+# * Creating the utilities S3 bucket with correct bucket policy
+
   - name: "Create a New Internal SSH Keypair"
     ec2_key:
       name: "{{ stackname }}-ec2-ssh-private"
@@ -102,7 +111,7 @@
     copy:
       content: "{{ ssh_private.key.private_key }}"
       dest: "{{ playbook_dir }}/{{ stackname }}-ec2-ssh-private.pem"
-    when: "{{ ssh_private.key.private_key }} is defined"
+    when: ssh_private.key.private_key is defined
   - name: "Generate Self Signed Certificates" #Due to older version of ansible, we are using command line to do this. Locality parameters are global. At some point, adjust scripts to actually get correct info based on actual location
     command: "openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out certificate.pem -config module_utils/sslselfsigned.conf -subj \"/C=UN/ST=UNI/L=Global/O={{ stackname }}/OU={{ stackname }}/CN={{ elbfqdn }}/emailAddress={{ email }}\""
   - name: "Upload Self Signed Certificates"

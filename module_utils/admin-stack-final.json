@@ -83,6 +83,11 @@
 			"MinLength": "8",
 			"NoEcho": "true",
 			"AllowedPattern" : ".+"
+		},
+		"IntPrivateKey": {
+			"Type": "String",
+                        "Description": "The newly Generated Private Key. To be saved in the utility stack",
+                        "AllowedPattern" : ".+"
 		}
 	},
 
@@ -580,7 +585,16 @@
 								"#!/bin/bash",
 								"apt-get update",
 								"apt-get upgrade -y",
-								"apt-get install -y ansible"
+								"apt-get install -y ansible",
+								"su - admin",
+								"Fn::Join": [" ",
+									[
+										"echo ", {
+											"Ref": "IntPrivateKey"
+										},
+										" > internal.pem"
+									]
+								]
 							]
 						]
 					}

@@ -935,11 +935,8 @@
 										}
 									]]},
 									{"Fn::Join": ["=", [
-										"elbfqdn", {
-											"Fn::GetAtt": [
-												"ALBAdminStack",
-												"DNSName"
-											]
+										"region", {
+											"Ref": "AWS::Region"
 										}
 									]]},
 									"\" -vvvv > runlog.log"

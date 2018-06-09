@@ -3,8 +3,6 @@
 #IMPORTANT: We want a primary / failover configuration where if a host fails, a new one in it's place will pick up the installation in the EFS and pick up from there. To make this work, all wuser data will be stored in /opt/jenkins_data on EFS mount
 #All of these tasks will be run locally
 - hosts: adminstack
-  vars:
-    region: ap-southeast-2
   tasks:
   - name: "Install unzip"
     apt:

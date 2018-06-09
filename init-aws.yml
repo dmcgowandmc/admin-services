@@ -4,7 +4,6 @@
 #IMPORTANT : Due to limitations with this version of ansible, I have had to use the CLI functionality to perform these tasks which is very error prone. This playbook will eventually need to be re-written
 - hosts: adminstack
   vars:
-    region: ap-southeast-2
     CertificateArn: "none"
   tasks:
 

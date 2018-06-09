@@ -1,15 +1,16 @@
-#This script will init the aws components we couldn't setup using cloud formation templates. It will then apply an updated cloud formation tempalte utilizating these components and other stack components we could use before. Once completed it will clean up anything
+#This script will init the aws components we couldn't setup using cloud formation templates. It will then apply an updated cloud formation template utilizating these components and other stack components we could use before. Once completed it will clean up anything
 #temporary we created and re-init jenkins
 #All of tese tasks will be run locally
 #IMPORTANT : Due to limitations with this version of ansible, I have had to use the CLI functionality to perform these tasks which is very error prone. This playbook will eventually need to be re-written
 - hosts: adminstack
   vars:
     region: ap-southeast-2
+    CertificateArn: "none"
   tasks:
 
+  #Creating the required policies and roles for the stack to use from now on. Collect necessary facts
 
-#Creating the required policies and roles for the stack to use from now on. Collect necessary facts
-
+  #Create Policies and save facts
   - name: "Create Policy CloudFormationAdditionalAccess" #Policy Creation not supported on this version of ansible. Using aws cli to create policy. And have to use ignore errors flag to so not to trip up if already exists
     command: aws iam create-policy --policy-name CloudFormationAdditionalAccess --policy-document file://module_utils/CloudFormationAdditionalAccess.json
     register: cloudformationadditionalaccess
@@ -26,6 +27,8 @@
     set_fact:
       CloudWatchUploadJson: "{{ CloudWatchUpload.stdout | from_json }}"
     ignore_errors: true
+
+  #Create IAM Roles, assign relevant policies and save facts
   - name: "Create {{ stackname }}-iam-role-admin-ec2 role"
     command: "aws iam create-role --role-name {{ stackname }}-iam-role-admin-ec2 --assume-role-policy-document file://module_utils/ec2role.json"
     ignore_errors: true
@@ -60,6 +63,8 @@
   - name: "Assign policies to {{ stackname }}-iam-role-utilities-db role"
     command: "aws iam attach-role-policy --policy-arn arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole --role-name {{ stackname }}-iam-role-utilities-db"
     ignore_errors: true
+
+  #Create Profiles for each role, assign profiles and save facts. Because that couldn't be done automatically in the previous calls :(
   - name: "Create {{ stackname }}-iam-role-admin-ec2 instance-profile"
     command: "aws iam create-instance-profile --instance-profile-name {{ stackname }}-iam-role-admin-ec2"
     ignore_errors: true
@@ -94,14 +99,14 @@
   - set_fact:
       UtilitiesDBFactJson: "{{ utilitiesdbfact.stdout | from_json }}"
 
+  #Set up Other components and update admin stack
+  #We are making the following updates to the admin stack
+  # * Generating a new internal private key and applying that to the admin stack
+  # * Configuring TLS on the ELB
+  # * Applying new roles with proper needs only permissions
+  # * Creating the utilities S3 bucket with correct bucket policy
 
-#Set up Other components and update admin stack
-#We are making the following updates to the admin stack
-# * Generating a new internal private key and applying that to the admin stack
-# * Configuring TLS on the ELB
-# * Applying new roles with proper needs only permissions
-# * Creating the utilities S3 bucket with correct bucket policy
-
+  #Generating a new internal SSH key. Will be applied to admin stack once final template applied
   - name: "Remove old Internal SSH Keypair (if exists)" #Need better checking rather than just ignoring errors
     ec2_key:
       name: "{{ stackname }}-ec2-ssh-private"
@@ -119,15 +124,36 @@
       content: "{{ ssh_private.key.private_key }}"
       dest: "{{ playbook_dir }}/{{ stackname }}-ec2-ssh-private.pem"
     when: ssh_private.key.private_key is defined
+  #IMPORTANT. Need a step to upload the private key to S3. Otherwise no way to use it!!!
+
+  #Generate new self signed certificates for application to the load balancer
+  #Check for Existing Certificates otherwise we just keep uploading the same thing and it's 100 upload limit PER YEAR!!! Set CertificateArn to existing cert if found
+  - name: "Check for Existing Cert"
+    command: "aws acm list-certificates --region {{ region }}"
+    register: existingcert
+  - set_fact:
+      ExistingCertJson: "{{ existingcert.stdout | from_json }}"
+  - set_fact:
+      CertificateArn: "{{ item.CertificateArn }}"
+    when: item.DomainName == "{{ stackname }}.com"
+    with_items: "{{ ExistingCertJson.CertificateSummaryList }}"
+
+  #In event existing cert is not found, generate a new one and upload. Set CertificateArn to new cert
   - name: "Generate Self Signed Certificates" #Due to older version of ansible, we are using command line to do this. Locality parameters are global. At some point, adjust scripts to actually get correct info based on actual location
-    command: "openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out certificate.pem -config module_utils/sslselfsigned.conf -subj \"/C=UN/ST=UNI/L=Global/O={{ stackname }}/OU={{ stackname }}/CN={{ elbfqdn }}/emailAddress={{ email }}\""
+    command: "openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out certificate.pem -config module_utils/sslselfsigned.conf -subj \"/C=UN/ST=UNI/L=Global/O={{ stackname }}/OU={{ stackname }}/CN={{ stackname }}.com/emailAddress={{ email }}\""
+    when: CertificateArn == "none"
   - name: "Upload Self Signed Certificates"
     command: "aws acm import-certificate --region {{ region }} --private-key file://key.pem --certificate file://certificate.pem"
-    register: certificate
+    when: CertificateArn == "none"
+    register: newcert
   - set_fact:
-      CertificateJson: "{{ certificate.stdout | from_json }}"
-  - debug:
-      msg: "Value is {{ CertificateJson.CertificateArn }}"
+      NewCertJson: "{{ newcert.stdout | from_json }}"
+    when: CertificateArn == "none"
+  - set_fact:
+      CertificateArn: "{{ NewCertJson.CertificateArn }}"
+    when: CertificateArn == "none"
+
+
   - name: "Apply Final AWS Template"
     cloudformation:
       stack_name: "{{ stackname }}"
@@ -144,7 +170,7 @@
         UtilitiesEC2RolePrincipal: "{{ UtilitiesEC2FactJson.Role.Arn }}"
         ExtKeyPair: "mywordpresssite-external"
         IntKeyPair: "{{ stackname }}-ec2-ssh-private"
-        CertificateArn: "{{ CertificateJson.CertificateArn }}"
+        CertificateArn: "{{ CertificateArn }}"
         InfraAlertEmail: "{{ email }}"
         AdminUsername: "{{ username }}"
         AdminPassword: "{{ password }}"

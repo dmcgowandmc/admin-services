@@ -427,7 +427,7 @@
 				"VPCRouteTBLAdminPrivate"
 			]
 		},
-		"MyWordpressSiteVPCRouteTBLWebPrivateCFGNAT": {
+		"VPCRouteTBLWebPrivateCFGNAT": {
 			"Type" : "AWS::EC2::Route",
 			"Properties" : {
 				"DestinationCidrBlock" : "0.0.0.0/0",
@@ -481,6 +481,147 @@
 					}
 				}]
 			}
+		},
+		"SGAdminStackALB" : {
+			"Type" : "AWS::EC2::SecurityGroup",
+			"Properties" : {
+				"GroupDescription" : "Standard Security group for AdminStack Application Load Balancer. Permit 443 and 80 from specified range, Permit ICMP from 10.0.0.0",
+				"VpcId" : {
+					"Ref": "VPC"
+				},
+				"SecurityGroupIngress" : [
+					{
+						"IpProtocol" : "icmp",
+						"FromPort" : "-1",
+						"ToPort" : "-1",
+						"CidrIp" : "10.0.0.0/16"
+					},
+					{
+						"IpProtocol" : "tcp",
+						"FromPort" : "443",
+						"ToPort" : "443",
+						"CidrIp" : {
+							"Ref": "BaseAdminExtIP"
+						}
+					},
+					{
+						"IpProtocol" : "tcp",
+						"FromPort" : "80",
+						"ToPort" : "80",
+						"CidrIp" : {
+							"Ref": "BaseAdminExtIP"
+						}
+					}
+				],
+				"Tags": [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Join": ["-", [
+								{"Ref": "AWS::StackName"},
+								"sg-adminstack-alb"
+							]
+						]
+					}
+				}]
+			}
+		},
+		"SGAdminStackLC" : {
+			"Type" : "AWS::EC2::SecurityGroup",
+			"Properties" : {
+				"GroupDescription" : "Standard Security group for AdminStack Launch Config. Permit SSH from Utility Security Group and Own Security Group, Permit 8080 from Application ELB, Permit ICMP from 10.0.0.0",
+				"VpcId" : {
+					"Ref": "VPC"
+				},
+				"SecurityGroupIngress" : [
+					{
+						"IpProtocol" : "icmp",
+						"FromPort" : "-1",
+						"ToPort" : "-1",
+						"CidrIp" : "10.0.0.0/16"
+					},
+					{
+						"IpProtocol" : "tcp",
+						"FromPort" : "22",
+						"ToPort" : "22",
+						"SourceSecurityGroupId" : {
+							"Ref": "SGUtility"
+						}
+					},
+					{
+						"IpProtocol" : "tcp",
+						"FromPort" : "8080",
+						"ToPort" : "8080",
+						"SourceSecurityGroupId" : {
+							"Ref": "SGAdminStackALB"
+						}
+					}
+				],
+				"Tags": [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Join": ["-", [
+								{"Ref": "AWS::StackName"},
+								"sg-adminstack-lc"
+							]
+						]
+					}
+				}]
+			},
+			"DependsOn": [
+				"SGUtility"
+			]
+		},
+		"SGUtilityIngressUtility" : {
+			"Type" : "AWS::EC2::SecurityGroupIngress",
+			"Properties" : {
+				"IpProtocol" : "tcp",
+				"FromPort" : "22",
+				"ToPort" : "22",
+				"SourceSecurityGroupId" : {
+					"Ref": "SGAdminStackLC"
+				},
+				"GroupId": {
+					"Ref": "SGUtility"
+				}
+			}
+		},
+		"SGAdminStackEFS": {
+			"Type" : "AWS::EC2::SecurityGroup",
+			"Properties" : {
+				"GroupDescription" : "Standard Security group for EFS. Permit 2049 from LC security group, Permit ICMP from 10.0.0.0",
+				"VpcId" : {
+					"Ref": "VPC"
+				},
+				"SecurityGroupIngress" : [
+					{
+						"IpProtocol" : "icmp",
+						"FromPort" : "-1",
+						"ToPort" : "-1",
+						"CidrIp" : "10.0.0.0/16"
+					},
+					{
+						"IpProtocol" : "tcp",
+						"FromPort" : "2049",
+						"ToPort" : "2049",
+						"SourceSecurityGroupId" : {
+							"Ref": "SGAdminStackLC"
+						}
+					}
+				],
+				"Tags": [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Join": ["-", [
+								{"Ref": "AWS::StackName"},
+								"sg-adminstack-efs"
+							]
+						]
+					}
+				}]
+			},
+			"DependsOn": [
+				"SGAdminStackLC"
+			]
 		},
 		"SNSTopicInfraAlert": {
 			"Type" : "AWS::SNS::Topic",
@@ -621,149 +762,6 @@
 			"DependsOn":[
 				"SNSTopicInfraAlertSubscripe",
 				"EC2UtilityAZ1"
-			]
-		},
-
-
-		"SGAdminStackALB" : {
-			"Type" : "AWS::EC2::SecurityGroup",
-			"Properties" : {
-				"GroupDescription" : "Standard Security group for AdminStack Application Load Balancer. Permit 443 and 80 from specified range, Permit ICMP from 10.0.0.0",
-				"VpcId" : {
-					"Ref": "VPC"
-				},
-				"SecurityGroupIngress" : [
-					{
-						"IpProtocol" : "icmp",
-						"FromPort" : "-1",
-						"ToPort" : "-1",
-						"CidrIp" : "10.0.0.0/16"
-					},
-					{
-						"IpProtocol" : "tcp",
-						"FromPort" : "443",
-						"ToPort" : "443",
-						"CidrIp" : {
-							"Ref": "BaseAdminExtIP"
-						}
-					},
-					{
-						"IpProtocol" : "tcp",
-						"FromPort" : "80",
-						"ToPort" : "80",
-						"CidrIp" : {
-							"Ref": "BaseAdminExtIP"
-						}
-					}
-				],
-				"Tags": [{
-					"Key": "Name",
-					"Value": {
-						"Fn::Join": ["-", [
-								{"Ref": "AWS::StackName"},
-								"sg-adminstack-alb"
-							]
-						]
-					}
-				}]
-			}
-		},
-		"SGAdminStackLC" : {
-			"Type" : "AWS::EC2::SecurityGroup",
-			"Properties" : {
-				"GroupDescription" : "Standard Security group for AdminStack Launch Config. Permit SSH from Utility Security Group and Own Security Group, Permit 8080 from Application ELB, Permit ICMP from 10.0.0.0",
-				"VpcId" : {
-					"Ref": "VPC"
-				},
-				"SecurityGroupIngress" : [
-					{
-						"IpProtocol" : "icmp",
-						"FromPort" : "-1",
-						"ToPort" : "-1",
-						"CidrIp" : "10.0.0.0/16"
-					},
-					{
-						"IpProtocol" : "tcp",
-						"FromPort" : "22",
-						"ToPort" : "22",
-						"SourceSecurityGroupId" : {
-							"Ref": "SGUtility"
-						}
-					},
-					{
-						"IpProtocol" : "tcp",
-						"FromPort" : "8080",
-						"ToPort" : "8080",
-						"SourceSecurityGroupId" : {
-							"Ref": "SGAdminStackALB"
-						}
-					}
-				],
-				"Tags": [{
-					"Key": "Name",
-					"Value": {
-						"Fn::Join": ["-", [
-								{"Ref": "AWS::StackName"},
-								"sg-adminstack-lc"
-							]
-						]
-					}
-				}]
-			},
-			"DependsOn": [
-				"SGUtility"
-			]
-		},
-		"SGUtilityIngressAdmin" : {
-			"Type" : "AWS::EC2::SecurityGroupIngress",
-			"Properties" : {
-				"IpProtocol" : "tcp",
-				"FromPort" : "22",
-				"ToPort" : "22",
-				"SourceSecurityGroupId" : {
-					"Ref": "SGAdminStackLC"
-				},
-				"GroupId": {
-					"Ref": "SGUtility"
-				}
-			}
-		},
-		"SGAdminStackEFS": {
-			"Type" : "AWS::EC2::SecurityGroup",
-			"Properties" : {
-				"GroupDescription" : "Standard Security group for EFS. Permit 2049 from LC security group, Permit ICMP from 10.0.0.0",
-				"VpcId" : {
-					"Ref": "VPC"
-				},
-				"SecurityGroupIngress" : [
-					{
-						"IpProtocol" : "icmp",
-						"FromPort" : "-1",
-						"ToPort" : "-1",
-						"CidrIp" : "10.0.0.0/16"
-					},
-					{
-						"IpProtocol" : "tcp",
-						"FromPort" : "2049",
-						"ToPort" : "2049",
-						"SourceSecurityGroupId" : {
-							"Ref": "SGAdminStackLC"
-						}
-					}
-				],
-				"Tags": [{
-					"Key": "Name",
-					"Value": {
-						"Fn::Join": ["-", [
-								{"Ref": "AWS::StackName"},
-								"sg-adminstack-efs"
-							]
-						]
-					}
-				}]
-			},
-			"DependsOn": [
-				"SGAdminStackLC"
 			]
 		},
 		"EFSAdminStack": {

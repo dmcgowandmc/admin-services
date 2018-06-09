@@ -174,8 +174,5 @@
         InfraAlertEmail: "{{ email }}"
         AdminUsername: "{{ username }}"
         AdminPassword: "{{ password }}"
-        StandardUsername: "{{ username }}"
-        StandardPassword: "{{ password }}"
-        IntPrivateKey: "{{ ssh_private.key.private_key }}"
       tags:
         Stack: "{{ stackname }}"

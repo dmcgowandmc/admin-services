@@ -71,23 +71,6 @@
 			"MinLength": "8",
 			"NoEcho": "true",
 			"AllowedPattern" : ".+"
-		},
-		"StandardUsername": {
-			"Type": "String",
-			"Description": "Please provide an standard username for the admin server / aws console",
-			"AllowedPattern" : ".+"
-		},
-		"StandardPassword": {
-			"Type": "String",
-			"Description": "Please provide an standard password for the admin server / aws console",
-			"MinLength": "8",
-			"NoEcho": "true",
-			"AllowedPattern" : ".+"
-		},
-		"IntPrivateKey": {
-			"Type": "String",
-				"Description": "The newly Generated Private Key. To be saved in the utility stack",
-				"AllowedPattern" : ".+"
 		}
 	},
 
@@ -585,16 +568,7 @@
 								"#!/bin/bash",
 								"apt-get update",
 								"apt-get upgrade -y",
-								"apt-get install -y ansible",
-								"su - admin",
-								"Fn::Join": [" ",
-									[
-										"echo ", {
-											"Ref": "IntPrivateKey"
-										},
-										" > internal.pem"
-									]
-								]
+								"apt-get install -y ansible"
 							]
 						]
 					}

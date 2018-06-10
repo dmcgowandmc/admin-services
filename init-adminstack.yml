@@ -24,6 +24,13 @@
     apt:
       name: nfs-common
       state: present
+  - name: "Download Cloudwatch Agent"
+    get_url:
+      url: https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py
+      dest: /root/awslogs-agent-setup.py
+      mode: 0744
+  - name: "Install Cloudwatch Agent" #Should eventually build a module
+    command: python /root/awslogs-agent-setup.py --region {{ region }} -n -c {{ playbook_dir }}/module_utils/awslogs.conf
   - name: "Get Jenkins IO Key"
     get_url:
       url: "https://pkg.jenkins.io/debian/jenkins.io.key"
@@ -93,6 +100,15 @@
       username: "{{ username }}"
       password: "{{ password }}"
       email: "{{ email }}"
-- include: init-aws.yml #This script will complete the setup of AWS components we couldn't complete in the init cloud formation template
+  - name: "Download Cloudwatch Agent"
+    get_url:
+      url: https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py
+      dest: /root/awslogs-agent-setup.py
+      mode: 0744
+  - name: "Install Cloudwatch Agent" #Should eventually build a module
+    command: python /root/awslogs-agent-setup.py --region ap-southeast-2 -n -c /root/webinit/module_utils/awslogs.conf
 
-#ansible-playbook -i inventory/adminstack init-aws.yml --extra-vars "efsfqdn=<efsfqdn> username=<rootuname> password=<rootpw> email=<rootemail> stackname=<stackname> elbfqdn=<elbfqdn>" -vvvv
+#This script will complete the setup of AWS components we couldn't complete in the init cloud formation template
+- include: init-aws.yml
+
+#ansible-playbook -i inventory/adminstack init-aws.yml --extra-vars "efsfqdn=<efsfqdn> username=<rootuname> password=<rootpw> email=<rootemail> stackname=<stackname> region=<aws-region>" -vvvv

@@ -100,13 +100,6 @@
       username: "{{ username }}"
       password: "{{ password }}"
       email: "{{ email }}"
-  - name: "Download Cloudwatch Agent"
-    get_url:
-      url: https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py
-      dest: /root/awslogs-agent-setup.py
-      mode: 0744
-  - name: "Install Cloudwatch Agent" #Should eventually build a module
-    command: python /root/awslogs-agent-setup.py --region ap-southeast-2 -n -c /root/webinit/module_utils/awslogs.conf
 
 #This script will complete the setup of AWS components we couldn't complete in the init cloud formation template
 - include: init-aws.yml

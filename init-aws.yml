@@ -99,7 +99,6 @@
       UtilitiesDBFactJson: "{{ utilitiesdbfact.stdout | from_json }}"
 
   #Set up Other components and update admin stack
-  #We are making the following updates to the admin stack
   # * Generating a new internal private key and applying that to the admin stack
   # * Configuring TLS on the ELB
   # * Applying new roles with proper needs only permissions
@@ -152,7 +151,11 @@
       CertificateArn: "{{ NewCertJson.CertificateArn }}"
     when: CertificateArn == "none"
 
-
+  #Apply the following changes to the stack
+  # * Generating a new internal private key and applying that to the admin stack
+  # * Create ALB with TLS using certs created previously
+  # * Applying new roles with restricted permissioning
+  # * Creating the utilities S3 bucket with correct bucket policy
   - name: "Apply Final AWS Template"
     cloudformation:
       stack_name: "{{ stackname }}"
@@ -175,3 +178,7 @@
         AdminPassword: "{{ password }}"
       tags:
         Stack: "{{ stackname }}"
+
+  # Upload the new private key to the bootstrap dir in the s3 for eventually download to the utility server
+  - name: Upload new private key to s3 bootstrap 
+    command: "aws s3 cp {{ playbook_dir }}/{{ stackname }}-ec2-ssh-private.pem s3://{{ stackname }}-s3-utilities/bootstrap/{{ stackname }}-ec2-ssh-private.pem --sse"

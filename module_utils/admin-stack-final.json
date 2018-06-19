@@ -994,13 +994,13 @@
 			"Type" : "AWS::ElasticLoadBalancingV2::TargetGroup",
 			"Properties" : {
 				"HealthCheckIntervalSeconds" : "5",
-				"HealthCheckPath" : "/",
+				"HealthCheckPath" : "/login",
 				"HealthCheckPort" : "8080",
 				"HealthCheckProtocol" : "HTTP",
 				"HealthCheckTimeoutSeconds" : "3",
 				"HealthyThresholdCount" : "2",
 				"Matcher" : {
-					"HttpCode": "403"
+					"HttpCode": "200"
 				},
 				"Name" : {
 					"Fn::Join": ["-", [

@@ -23,4 +23,4 @@ Will do the following:
 
 Scripts are intended to be run automatically on startup but they can be run manually for testing purposes. Must be run as root
 
-ansible-playbook -i inventory/adminstack init-aws.yml --extra-vars "efsfqdn=<efsfqdn> username=<rootuname> password=<rootpw> email=<rootemail> stackname=<stackname> region=<aws-region>" -vvvv
+ansible-playbook -i inventory/adminstack init-aws.yml --extra-vars "efsfqdn=<efsfqdn> username=<rootuname> password=<rootpw> email=<rootemail> utilityip=<utilityip> adminextip=<adminextip> baseami=<baseami> stackname=<stackname> region=<aws-region>" -vvvv

@@ -163,9 +163,9 @@
       region: "{{ region }}"
       template: "{{ playbook_dir }}/module_utils/admin-stack-final.json"
       template_parameters:
-        BaseUtilityIP: "0.0.0.0/0"
-        BaseAdminExtIP: "0.0.0.0/0"
-        BaseAMI: "ami-0c34246f"
+        BaseUtilityIP: "{{ utilityip }}"
+        BaseAdminExtIP: "{{ adminextip }}"
+        BaseAMI: "{{ baseami }}"
         AdminEC2Role: "{{ stackname }}-iam-role-admin-ec2"
         UtilitiesEC2Role: "{{ stackname }}-iam-role-utilities-ec2"
         AdminEC2RolePrincipal: "{{ AdminEC2FactJson.Role.Arn }}"

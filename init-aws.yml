@@ -184,8 +184,8 @@
     command: "aws s3 cp {{ playbook_dir }}/{{ stackname }}-ec2-ssh-private.pem s3://{{ stackname }}-s3-utilities/bootstrap/{{ stackname }}-ec2-ssh-private.pem --sse"
 
   #Also upload the runlog in case it needs to be analysed
-  - name: "Upload runlog"
-    command: "aws s3 cp {{ playbook_dir }}/runlog.log s3://{{ stackname }}-s3-utilities/bootstrap/runlog.log --sse"
+  #- name: "Upload runlog". COMMENTED OUT AS FILE FAILS TO UPLOAD. MAY BE DUE TO IT BEEN IN USE
+  #  command: "aws s3 cp {{ playbook_dir }}/runlog.log s3://{{ stackname }}-s3-utilities/bootstrap/runlog.log --sse"
 
   #Finally, terminate this instance so new key and role settings can take effect
   - name: "Terminating"
